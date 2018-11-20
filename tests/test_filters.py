@@ -1,19 +1,21 @@
 from pycfir.filters import *
 
-def get_x_chirp():
-    fs = 500
-    t = np.arange(fs * 60) / fs
-    randx = np.random.randn(len(t))
-    x = sg.chirp(t, f0=8, f1=10, t1=60, method='linear') * sg.filtfilt(*sg.butter(4, 2 / fs * 2, 'low'), randx)
-    return x
+class SquareSWFilter(SlidingWindowFilter):
+    def process_buffer(self):
+        return self.buffer[-1]**2
 
 def test_sw_filter1():
-    x = get_x_chirp()
+    x, amp = get_x_chirp(500)
     y = rt_emulate(SquareSWFilter(1), x)
-    assert np.allclose(x ** 2, y) == True
+    np.testing.assert_allclose(x ** 2, y)
 
 
 def test_sw_filter2():
-    x = get_x_chirp()
+    x, amp = get_x_chirp(500)
     y = rt_emulate(SquareSWFilter(500), x, 8)
-    assert np.allclose(x[7::8] ** 2, y[7::8]) == True
+    np.testing.assert_allclose(x[7::8] ** 2, y[7::8])
+
+def test_filtfilt_sw_filter_identity():
+    x, amp = get_x_chirp(500)
+    filt = FiltFiltRectSWFilter(1000, ([1., 0], [1]), ([1., 0], [1]), delay=0)
+    np.testing.assert_allclose(np.abs(x), rt_emulate(filt, x))

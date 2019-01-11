@@ -22,7 +22,7 @@ def _cLS(X, Y, lambda_=0):
     Complex valued Least Squares with L2 regularisation
     """
     reg = lambda_*np.eye(X.shape[1])
-    b = np.dot(np.dot(np.linalg.inv(np.dot(X.T, X.conj())+reg), X.T.conj()), Y)
+    b = np.linalg.solve(X.T.dot(X.conj()) + reg, (X.T.conj()).dot(Y))
     return b
 
 
@@ -45,6 +45,31 @@ def cfir_win(n_taps, band, fs, delay, n_fft=2000, reg_coeff=0):
     H = _get_ideal_H(n_fft, fs, band, delay)
     F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
     return _cLS(F, H, reg_coeff)
+
+
+class CFIRBandEnvelopeDetector:
+    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0):
+        """
+        Complex-valued FIR envelope detector based on analytic signal reconstruction
+        :param band: freq. range to apply band-pass filtering
+        :param fs: sampling frequency
+        :param smoother: smoother class instance to smooth output signal
+        :param delay_ms: delay of ideal filter in ms
+        :param n_taps: length of FIR
+        :param n_fft: length of freq. grid to estimate ideal freq. response
+        :param reg_coeff: least squares L2 regularisation coefficient
+        """
+        H = _get_ideal_H(n_fft, fs, band, delay)
+        F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
+        self.b = _cLS(F, H, reg_coeff)
+        self.a = np.array([1.])
+        self.zi = np.zeros(len(self.b)-1)
+
+    def apply(self, chunk: np.ndarray):
+        y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
+        y = np.abs(y)
+        return y
+
 
 
 class SlidingWindowFilter:

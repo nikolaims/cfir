@@ -4,7 +4,7 @@ import scipy.signal as sg
 
 def get_x_chirp(fs, f0=10, f1=10):
     np.random.seed(42)
-    t = np.arange(fs * 10) / fs
+    t = np.arange(fs * 100) / fs
     amp = sg.filtfilt(*sg.butter(4, 2 / fs * 2, 'low'), np.random.randn(len(t)), method='gust')
     x = sg.chirp(t, f0=f0, f1=f1, t1=10, method='linear') * amp
     return x, np.abs(amp)
@@ -77,13 +77,17 @@ class FiltFiltRectSWFilter(SlidingWindowFilter):
         return y[-self.delay-1]
 
 
-if __name__ == '__main__':
-    x, amp = get_x_chirp(500)
-    filt = FiltFiltRectSWFilter(1000, ([1., 0], [1]), ([1., 0], [1]), delay=0)
-    np.testing.assert_allclose(np.abs(x), rt_emulate(filt, x))
+class RectEnvDetector:
+    def __init__(self, band, fs, n_taps_bandpass, n_taps_smooth, smooth_cutoff=None):
+        self.b_bandpass = sg.firwin2(n_taps_bandpass, [0, band[0], band[0], band[1], band[1], fs/2], [0, 0, 1, 1, 0, 0], fs=fs)
+        if smooth_cutoff is None: smooth_cutoff = band[1]- band[0]
+        self.b_smooth = sg.firwin2(n_taps_smooth, [0, smooth_cutoff, smooth_cutoff, fs/2], [1, 1, 0, 0], fs=fs)
+        self.zi_bandpass = np.zeros(n_taps_bandpass-1)
+        self.zi_smooth = np.zeros(n_taps_smooth-1)
 
-    import pylab as plt
-    plt.plot(rt_emulate(filt, x))
-    plt.plot(np.abs(x))
-    plt.show()
+    def apply(self, chunk):
+        y, self.zi_bandpass = sg.lfilter(self.b_bandpass, [1.],  chunk, zi=self.zi_bandpass)
+        y = np.abs(y)
+        y, self.zi_smooth  = sg.lfilter(self.b_smooth, [1.], y, zi=self.zi_smooth)
+        return y
 

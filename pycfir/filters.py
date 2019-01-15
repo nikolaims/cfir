@@ -47,6 +47,15 @@ def cfir_win(n_taps, band, fs, delay, n_fft=2000, reg_coeff=0):
     return _cLS(F, H, reg_coeff)
 
 
+def band_hilbert(x, fs, band, N=None, axis=-1):
+    x = np.asarray(x)
+    Xf = np.fft.fft(x, N, axis=axis)
+    w = np.fft.fftfreq(x.shape[0], d=1. / fs)
+    Xf[(w < band[0]) | (w > band[1])] = 0
+    x = np.fft.ifft(Xf, axis=axis)
+    return 2*x
+
+
 class CFIRBandEnvelopeDetector:
     def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0):
         """
@@ -116,3 +125,31 @@ class RectEnvDetector:
         y, self.zi_smooth  = sg.lfilter(self.b_smooth, [1.], y, zi=self.zi_smooth)
         return y
 
+
+class HilbertWindowFilter(SlidingWindowFilter):
+    def __init__(self, n_taps, fs, band, delay, pad=False):
+        super(HilbertWindowFilter, self).__init__(n_taps)
+        self.delay = delay
+        self.fs = fs
+        self.band= band
+        self.pad=pad
+
+    def process_buffer(self):
+        x = np.concatenate([self.buffer, self.buffer[::-1]]) if self.pad else self.buffer
+        y = band_hilbert(x, self.fs, self.band)
+        return y[-self.delay-1]
+
+
+
+
+if __name__== '__main__':
+    fs = 500
+    x, amp = get_x_chirp(fs)
+    x += np.random.normal(size=len(x))*0.2
+    delay = 1000
+    filt = HilbertWindowFilter(2000, fs, [8, 12], delay)
+
+    import pylab as plt
+    plt.plot(np.abs(rt_emulate(filt, x))[delay:])
+    plt.plot(amp[:-delay])
+    plt.show()

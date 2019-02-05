@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.signal as sg
+import padasip as pa
+
 
 
 def get_x_chirp(fs, f0=10, f1=10):
@@ -80,6 +82,27 @@ class CFIRBandEnvelopeDetector:
         return y
 
 
+class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
+    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000):
+        super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
+        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=0.99)
+        self.rls.w = self.b[::-1]
+        self.buffer = SlidingWindowBuffer(len(self.b) +  ada_n_taps // 2 - delay)
+        self.fs = fs
+        self.band = band
+        self.ada_n_taps = ada_n_taps
+        self.delay = delay
+
+    def apply(self, chunk: np.ndarray):
+        x = self.buffer.update_buffer(chunk)
+        y = band_hilbert(x[-self.ada_n_taps:], self.fs, self.band)[-self.ada_n_taps//2-1]
+        self.rls.adapt(y, x[:len(self.b)])
+        self.rls.w -= 0.0000001 * self.rls.w
+        self.b = self.rls.w[::-1]
+        y = sg.lfilter(self.b, self.a, x)
+        y = np.abs(y[-len(chunk):])
+        return y
+
 
 class SlidingWindowFilter:
     def __init__(self, n_taps):
@@ -95,6 +118,33 @@ class SlidingWindowFilter:
 
     def process_buffer(self):
         raise NotImplementedError
+
+
+class SlidingWindowBuffer:
+    def __init__(self, n_taps):
+        self.buffer = np.zeros(n_taps)
+
+    def update_buffer(self, chunk):
+        if len(chunk) < len(self.buffer):
+            self.buffer[:-len(chunk)] = self.buffer[len(chunk):]
+            self.buffer[-len(chunk):] = chunk
+        else:
+            self.buffer = chunk[-len(self.buffer):]
+        return self.buffer
+
+
+class WHilbertFilter:
+    def __init__(self, n_taps, fs, band, delay):
+        self.delay = delay
+        self.fs = fs
+        self.band = band
+        self.buffer = SlidingWindowBuffer(n_taps)
+
+    def apply(self, chunk):
+        x = self.buffer.update_buffer(chunk)
+        y = band_hilbert(x, self.fs, self.band)
+        return y[-self.delay-1] * np.ones(len(chunk))
+
 
 
 class FiltFiltRectSWFilter(SlidingWindowFilter):
@@ -141,15 +191,23 @@ class HilbertWindowFilter(SlidingWindowFilter):
 
 
 
-
 if __name__== '__main__':
     fs = 500
     x, amp = get_x_chirp(fs)
-    x += np.random.normal(size=len(x))*0.2
-    delay = 1000
-    filt = HilbertWindowFilter(2000, fs, [8, 12], delay)
+    x += np.random.normal(size=len(x))*0.01  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
+    delay = -20
+    filt = WHilbertFilter(2000, fs, [8, 12], delay)
+    filt = AdaptiveCFIRBandEnvelopeDetector([8, 12], fs, delay, n_taps=500)
 
     import pylab as plt
-    plt.plot(np.abs(rt_emulate(filt, x))[delay:])
-    plt.plot(amp[:-delay])
+    y_hat = np.abs(rt_emulate(filt, x, 8))[delay if delay>0 else None:delay if delay<0 else None]
+    y = amp[-delay if delay<0 else None:-delay if delay>0 else None]
+    plt.plot(y_hat)
+    plt.plot(y)
     plt.show()
+
+    print(np.corrcoef(y[10000:], y_hat[10000:])[1,0])
+
+    plt.figure()
+    plt.plot(filt.rls.w)
+    plt.plot(AdaptiveCFIRBandEnvelopeDetector([8, 12], fs, delay).rls.w[::])

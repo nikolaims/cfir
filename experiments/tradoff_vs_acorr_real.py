@@ -1,5 +1,5 @@
 import numpy as np
-from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter
+from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter, WHilbertFilter, AdaptiveCFIRBandEnvelopeDetector
 import pylab as plt
 import pickle
 import pandas as pd
@@ -24,13 +24,13 @@ def corr_delay(x, y, delay):
     corr = np.corrcoef(x, y)[0, 1]
     return corr
 
-def get_corr(delay, method_name):
+def get_corr(delay, method_name, band):
     if method_name == 'Rect':
         if delay > 0:
             corrs = []
             ys = []
             for k in range(1, delay):
-                method = RectEnvDetector([8, 12], fs, k * 2, 2 * delay - 2 * k)
+                method = RectEnvDetector(band, fs, k * 2, 2 * delay - 2 * k)
                 ys.append(method.apply(x))
                 corr = corr_delay(ys[-1], amp, delay)
                 corrs.append(0 if np.isnan(corr) else corr)
@@ -41,14 +41,21 @@ def get_corr(delay, method_name):
             y = np.zeros(len(x))*np.nan
 
     elif method_name == 'cFIR':
-        method = CFIRBandEnvelopeDetector([8, 12], fs, delay, n_taps=1000, n_fft=2000)
+        method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000)
         y = method.apply(x)
         opt_corr = corr_delay(y, amp, delay)
+
+    elif method_name == 'acFIR':
+        method = AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000, ada_n_taps=500)
+        y = np.abs(rt_emulate(method, x, 10))
+        print('\t', delay)
+        opt_corr = corr_delay(y, amp, delay)
+
 
     # Hilbert
     elif method_name=='wHilbert':
         if delay >= 0:
-            method = HilbertWindowFilter(500, fs, [8, 12], delay)
+            method = WHilbertFilter(500, fs, band, delay)
             y = np.abs(rt_emulate(method, x, 10))
             opt_corr = corr_delay(y, amp, delay)
         else:
@@ -59,26 +66,26 @@ def get_corr(delay, method_name):
 
 # load sim data
 with open('alpha_real.pkl', 'rb') as handle:
-    sim_dict = pickle.load(handle)
+    eeg_dict = pickle.load(handle)
 
 # params
 n_seconds = 20
 fs = 500
-delays = np.arange(-200, 200, 20)
-subjects = np.arange(1, 15, 2)
+delays = np.arange(-100, 150, 25)
+subjects = np.arange(len(eeg_dict['raw']))[:4]
 stats = pd.DataFrame(columns=['method', 'delay', 'corr', 'snr', 'acorr_delay', 'subj'])
-methods = ['cFIR', 'Rect', 'wHilbert']
+methods = ['cFIR', 'Rect', 'wHilbert', 'acFIR']
 
 for method in methods:
 
     for subj in subjects:
         print(method, subj)
-        x = sim_dict['raw'][subj]
-        amp = sim_dict['envelope'][subj]
+        x = eeg_dict['raw'][subj]
+        amp = eeg_dict['envelope'][subj]
 
         # estimate snr
         freq, pxx = sg.welch(x, fs, nperseg=fs * 2)
-        alpha_mask = (freq >= 8) & (freq <= 12)
+        alpha_mask = (freq >= 7) & (freq <= 13)
         main_freq = freq[alpha_mask][np.argmax(pxx[alpha_mask])]
         band = (main_freq - ALPHA_BAND_WIDTH, main_freq + ALPHA_BAND_WIDTH)
         sig = pxx[(freq >= band[0]) & (freq <= band[1])].mean()
@@ -89,7 +96,7 @@ for method in methods:
 
         for j, delay in enumerate(delays):
             # cFIR env detector
-            opt_corr, y = get_corr(delay, method)
+            opt_corr, y = get_corr(delay, method, band)
             stats = stats.append({'method': method, 'delay': delay, 'corr': opt_corr, 'snr': snr, 'acorr_delay': None, 'subj': subj}, ignore_index=True)
 
             for translation in delays[delays<=delay]:
@@ -102,6 +109,8 @@ for method in methods:
 #snrs = [0, 0]
 
 fig, axes = plt.subplots(len(methods)+1, len(subjects), sharex=True, sharey=True)
+
+q_df = pd.DataFrame(columns=['subj', 'snr', 'method', 'delay_ms', 'corr'])
 
 for j_method, method in enumerate(methods):
     for j_subj, subj in enumerate(subjects):
@@ -132,7 +141,24 @@ for j_method, method in enumerate(methods):
 
         axes[-1, j_subj].plot(delays/fs*1000, corrs, label=method)
 
+        q_df = q_df.append(pd.DataFrame({'subj': subj, 'snr': snr, 'method': method, 'delay_ms': delays/fs*1000, 'corr': corrs}))
+
 axes[-1, -1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 #plt.tight_layout()
 [(ax.grid(), ax.axvline(0, color='k', alpha=0.3), ax.set_xlabel('Delay, ms'), ax.set_ylabel('Corr.'), ax.set_xlim(-400, 400), ax.set_ylim(0, 1)) for ax in axes.flatten()]
 plt.show()
+
+
+
+
+sns.relplot('delay_ms', 'corr', 'method', data=q_df, kind='line')
+
+
+q_mean = q_df.query('delay_ms<400 & delay_ms>-400').groupby(['subj', 'method'], as_index=False).mean()
+q_mean['mean_corr'] = q_mean['corr']
+q_mean['logsnr'] = np.log10(q_mean['snr'])
+sns.lmplot('snr', 'mean_corr', hue='method', data=q_mean, hue_order=['cFIR', 'Rect', 'wHilbert', 'acFIR'], order=1, logx=True)
+plt.title('[-400 400]ms')
+plt.xlim(1, 5)
+plt.ylim(0,1)
+plt.tight_layout()

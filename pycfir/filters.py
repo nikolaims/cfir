@@ -85,7 +85,7 @@ class CFIRBandEnvelopeDetector:
 class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
     def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000):
         super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
-        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=0.99)
+        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=0.9)
         self.rls.w = self.b[::-1]
         self.buffer = SlidingWindowBuffer(len(self.b) +  ada_n_taps // 2 - delay)
         self.fs = fs

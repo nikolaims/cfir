@@ -16,7 +16,7 @@ def delay_align(x, y, delay):
     else:
         x = x[:delay]
         y = y[abs(delay):]
-    return x, y
+    return x[10000:], y[10000:]
 
 
 def corr_delay(x, y, delay):
@@ -41,12 +41,12 @@ def get_corr(delay, method_name, band):
             y = np.zeros(len(x))*np.nan
 
     elif method_name == 'cFIR':
-        method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000)
+        method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=1000, n_fft=2000)
         y = method.apply(x)
         opt_corr = corr_delay(y, amp, delay)
 
     elif method_name == 'acFIR':
-        method = AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000, ada_n_taps=500)
+        method = AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, n_taps=1000, n_fft=2000, ada_n_taps=500)
         y = np.abs(rt_emulate(method, x, 10))
         print('\t', delay)
         opt_corr = corr_delay(y, amp, delay)
@@ -71,8 +71,8 @@ with open('alpha_real.pkl', 'rb') as handle:
 # params
 n_seconds = 20
 fs = 500
-delays = np.arange(-100, 150, 25)
-subjects = np.arange(len(eeg_dict['raw']))[:4]
+delays = np.arange(-100, 150, 20)
+subjects = np.arange(len(eeg_dict['raw']))[:2]
 stats = pd.DataFrame(columns=['method', 'delay', 'corr', 'snr', 'acorr_delay', 'subj'])
 methods = ['cFIR', 'Rect', 'wHilbert', 'acFIR']
 
@@ -154,11 +154,11 @@ plt.show()
 sns.relplot('delay_ms', 'corr', 'method', data=q_df, kind='line')
 
 
-q_mean = q_df.query('delay_ms<400 & delay_ms>-400').groupby(['subj', 'method'], as_index=False).mean()
+q_mean = q_df.query('delay_ms<0 & delay_ms>-100').groupby(['subj', 'method'], as_index=False).mean()
 q_mean['mean_corr'] = q_mean['corr']
 q_mean['logsnr'] = np.log10(q_mean['snr'])
 sns.lmplot('snr', 'mean_corr', hue='method', data=q_mean, hue_order=['cFIR', 'Rect', 'wHilbert', 'acFIR'], order=1, logx=True)
-plt.title('[-400 400]ms')
+plt.title('[-100 0]ms')
 plt.xlim(1, 5)
 plt.ylim(0,1)
 plt.tight_layout()

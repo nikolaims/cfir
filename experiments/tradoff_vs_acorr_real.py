@@ -1,5 +1,5 @@
 import numpy as np
-from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter, WHilbertFilter, AdaptiveCFIRBandEnvelopeDetector
+from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter, WHilbertFilter, AdaptiveCFIRBandEnvelopeDetector, AdaptiveEnvelopePredictor
 import pylab as plt
 import pickle
 import pandas as pd
@@ -16,7 +16,7 @@ def delay_align(x, y, delay):
     else:
         x = x[:delay]
         y = y[abs(delay):]
-    return x[10000:], y[10000:]
+    return x[30000:], y[30000:]
 
 
 def corr_delay(x, y, delay):
@@ -51,6 +51,13 @@ def get_corr(delay, method_name, band):
         print('\t', delay)
         opt_corr = corr_delay(y, amp, delay)
 
+    elif method_name == 'pcFIR':
+        filt = CFIRBandEnvelopeDetector(band, fs, delay + 10, n_taps=1000, n_fft=2000)
+        method = AdaptiveEnvelopePredictor(filt, 500, -10)
+        y = np.abs(rt_emulate(method, x, 10))
+        print('\t', delay)
+        opt_corr = corr_delay(y, amp, delay)
+
 
     # Hilbert
     elif method_name=='wHilbert':
@@ -74,7 +81,7 @@ fs = 500
 delays = np.arange(-100, 150, 20)
 subjects = np.arange(len(eeg_dict['raw']))[:2]
 stats = pd.DataFrame(columns=['method', 'delay', 'corr', 'snr', 'acorr_delay', 'subj'])
-methods = ['cFIR', 'Rect', 'wHilbert', 'acFIR']
+methods = ['cFIR', 'Rect', 'wHilbert', 'acFIR', 'pcFIR']
 
 for method in methods:
 
@@ -157,7 +164,7 @@ sns.relplot('delay_ms', 'corr', 'method', data=q_df, kind='line')
 q_mean = q_df.query('delay_ms<0 & delay_ms>-100').groupby(['subj', 'method'], as_index=False).mean()
 q_mean['mean_corr'] = q_mean['corr']
 q_mean['logsnr'] = np.log10(q_mean['snr'])
-sns.lmplot('snr', 'mean_corr', hue='method', data=q_mean, hue_order=['cFIR', 'Rect', 'wHilbert', 'acFIR'], order=1, logx=True)
+sns.lmplot('snr', 'mean_corr', hue='method', data=q_mean, hue_order=methods, order=1, logx=True)
 plt.title('[-100 0]ms')
 plt.xlim(1, 5)
 plt.ylim(0,1)

@@ -42,7 +42,7 @@ def get_corr(delay, method_name, band):
 
     elif method_name == 'cFIR':
         method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000)
-        y = method.apply(x)
+        y = np.abs(method.apply(x))
         opt_corr = corr_delay(y, amp, delay)
 
     elif method_name == 'acFIR':
@@ -87,7 +87,7 @@ fs = 500
 delays = np.arange(-100, 150, 25)
 subjects = np.arange(len(eeg_dict['raw']))[:7]
 stats = pd.DataFrame(columns=['method', 'delay', 'corr', 'snr', 'acorr_delay', 'subj'])
-methods = ['cFIR', 'Rect', 'wHilbert', 'bandARHilbert']
+methods = ['cFIR', 'Rect', 'wHilbert', 'bandARHilbert'][:2]
 
 for method in methods:
 

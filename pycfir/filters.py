@@ -79,7 +79,6 @@ class CFIRBandEnvelopeDetector:
 
     def apply(self, chunk: np.ndarray):
         y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
-        y = np.abs(y)
         return y
 
 

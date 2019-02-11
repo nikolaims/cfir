@@ -1,5 +1,5 @@
 import numpy as np
-from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter, WHilbertFilter, AdaptiveCFIRBandEnvelopeDetector, AdaptiveEnvelopePredictor
+from pycfir.filters import get_x_chirp, RectEnvDetector, CFIRBandEnvelopeDetector, HilbertWindowFilter, rt_emulate, FiltFiltRectSWFilter, WHilbertFilter, AdaptiveCFIRBandEnvelopeDetector, AdaptiveEnvelopePredictor, FiltFiltARHilbertFilter
 import pylab as plt
 import pickle
 import pandas as pd
@@ -41,7 +41,7 @@ def get_corr(delay, method_name, band):
             y = np.zeros(len(x))*np.nan
 
     elif method_name == 'cFIR':
-        method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=1000, n_fft=2000)
+        method = CFIRBandEnvelopeDetector(band, fs, delay, n_taps=500, n_fft=2000)
         y = method.apply(x)
         opt_corr = corr_delay(y, amp, delay)
 
@@ -54,6 +54,12 @@ def get_corr(delay, method_name, band):
     elif method_name == 'pcFIR':
         filt = CFIRBandEnvelopeDetector(band, fs, delay + 10, n_taps=1000, n_fft=2000)
         method = AdaptiveEnvelopePredictor(filt, 500, -10)
+        y = np.abs(rt_emulate(method, x, 10))
+        print('\t', delay)
+        opt_corr = corr_delay(y, amp, delay)
+
+    elif method_name == 'bandARHilbert':
+        method = FiltFiltARHilbertFilter(band, fs, 500, 500, 50, delay, ar_order=100)
         y = np.abs(rt_emulate(method, x, 10))
         print('\t', delay)
         opt_corr = corr_delay(y, amp, delay)
@@ -78,10 +84,10 @@ with open('alpha_real.pkl', 'rb') as handle:
 # params
 n_seconds = 20
 fs = 500
-delays = np.arange(-100, 150, 20)
-subjects = np.arange(len(eeg_dict['raw']))[:2]
+delays = np.arange(-100, 150, 25)
+subjects = np.arange(len(eeg_dict['raw']))[:7]
 stats = pd.DataFrame(columns=['method', 'delay', 'corr', 'snr', 'acorr_delay', 'subj'])
-methods = ['cFIR', 'Rect', 'wHilbert', 'acFIR', 'pcFIR']
+methods = ['cFIR', 'Rect', 'wHilbert', 'bandARHilbert']
 
 for method in methods:
 

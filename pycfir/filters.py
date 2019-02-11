@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.signal as sg
 import padasip as pa
+from statsmodels.regression.linear_model import yule_walker
 
 
 
@@ -178,6 +179,51 @@ class FiltFiltRectSWFilter(SlidingWindowFilter):
         return y[-self.delay-1]
 
 
+class FiltFiltARHilbertFilter:
+    def __init__(self, band, fs, n_taps_buffer, n_taps_bandpass, n_taps_edge, delay, ar_order=50):
+        self.buffer = SlidingWindowBuffer(n_taps_buffer)
+        #self.b_bandpass = sg.firwin2(n_taps_bandpass, [0, band[0], band[0], band[1], band[1], fs / 2], [0, 0, 1, 1, 0, 0], fs=fs)
+        self.ba_bandpass = sg.butter(1, [band[0]/fs*2, band[1]/fs*2], 'band')
+        self.delay = delay
+        self.n_taps_edge_left = n_taps_edge
+        self.n_taps_edge_right = max(n_taps_edge, n_taps_edge-delay)
+        self.ar_order = ar_order
+        self.band = band
+        self.fs = fs
+
+    def apply(self, chunk):
+        x = self.buffer.update_buffer(chunk)
+       # y = sg.filtfilt(*self.ba_bandpass, x)
+        y = band_hilbert(x, self.fs, self.band)
+        if self.delay < self.n_taps_edge_left:
+
+            ar, s = yule_walker(y.real[:-self.n_taps_edge_left], self.ar_order, 'mle')
+
+            pred = y.real[:-self.n_taps_edge_left].tolist()
+            for _ in range(self.n_taps_edge_left + self.n_taps_edge_right):
+                pred.append(ar[::-1].dot(pred[-self.ar_order:]))
+
+            an_signal = sg.hilbert(pred)
+            env = an_signal[-self.n_taps_edge_right-self.delay]*np.ones(len(chunk))
+
+            #
+            # plt.plot(x, alpha=0.1)
+            # plt.plot(pred, alpha=0.9)
+            # plt.plot(np.abs(an_signal))
+            # plt.plot(y[:-self.n_taps_edge_left], 'k')
+            # plt.plot(y, 'k--')
+            #
+            # plt.show()
+
+
+        else:
+            env = y[-self.delay] * np.ones(len(chunk))
+
+        return env
+
+
+
+
 class RectEnvDetector:
     def __init__(self, band, fs, n_taps_bandpass, n_taps_smooth, smooth_cutoff=None):
         self.b_bandpass = sg.firwin2(n_taps_bandpass, [0, band[0], band[0], band[1], band[1], fs/2], [0, 0, 1, 1, 0, 0], fs=fs)
@@ -211,14 +257,15 @@ class HilbertWindowFilter(SlidingWindowFilter):
 if __name__== '__main__':
     fs = 500
     x, amp = get_x_chirp(fs)
-    x += np.random.normal(size=len(x))*0.01  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
-    delay = -50
-    #filt = WHilbertFilter(2000, fs, [8, 12], delay)
-    filt = CFIRBandEnvelopeDetector([8,12], fs, delay+50)
-    filt = AdaptiveEnvelopePredictor(filt, 500, -50)
+    x += np.random.normal(size=len(x))*0.0001  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
+    delay = 0
+    #filt = WHilbertFilter(500, fs, [8, 12], delay)
+    #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
+    #filt = AdaptiveEnvelopePredictor(filt, 500, -50)
+    filt = FiltFiltARHilbertFilter([8,12], fs, 500, 500, 40, delay, ar_order=100)
 
     import pylab as plt
-    y_hat = np.abs(rt_emulate(filt, x, 8))[delay if delay>0 else None:delay if delay<0 else None]
+    y_hat = np.abs(rt_emulate(filt, x, 20))[delay if delay>0 else None:delay if delay<0 else None]
     y = amp[-delay if delay<0 else None:-delay if delay>0 else None]
     plt.plot(y_hat)
     plt.plot(y)
@@ -226,6 +273,6 @@ if __name__== '__main__':
 
     print(np.corrcoef(y[30000:], y_hat[30000:])[1,0])
 
-    plt.figure()
-    plt.plot(filt.rls.w)
-    plt.plot(AdaptiveEnvelopePredictor(filt, 500, 0).rls.w)
+    #plt.figure()
+    #plt.plot(filt.rls.w)
+    #plt.plot(AdaptiveEnvelopePredictor(filt, 500, 0).rls.w)

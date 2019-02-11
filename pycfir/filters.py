@@ -82,6 +82,39 @@ class CFIRBandEnvelopeDetector:
         return y
 
 
+class ARCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
+    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, n_taps_pred=500, ar_order=50, delay_threshold=50):
+        if delay < delay_threshold:
+            self.enable_prediction = True
+            cfir_delay = delay_threshold
+            self.buffer = SlidingWindowBuffer(n_taps_pred, 'complex')
+            self.ar_order = ar_order
+            self.pred_delay = delay_threshold
+        else:
+            self.enable_prediction = False
+            cfir_delay = delay
+        super(ARCFIRBandEnvelopeDetector, self).__init__(band, fs, cfir_delay, n_taps, n_fft, reg_coeff)
+
+
+    def apply(self, chunk: np.ndarray):
+        y = super(ARCFIRBandEnvelopeDetector, self).apply(chunk)
+        if self.enable_prediction:
+            y = self.buffer.update_buffer(y)
+            ar_real, s = yule_walker(y.real, self.ar_order, 'mle')
+            ar_imag, s = yule_walker(y.imag, self.ar_order, 'mle')
+
+            pred = y.tolist()
+            for _ in range(self.pred_delay):
+                real = ar_real[::-1].dot(np.array(pred).real[-self.ar_order:])
+                imag = ar_imag[::-1].dot(np.array(pred).imag[-self.ar_order:])
+                pred.append(real + 1j*imag)
+            y = np.array(pred)[-len(chunk):]
+        return y
+
+
+
+
+
 class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
     def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000):
         super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
@@ -138,8 +171,8 @@ class SlidingWindowFilter:
 
 
 class SlidingWindowBuffer:
-    def __init__(self, n_taps):
-        self.buffer = np.zeros(n_taps)
+    def __init__(self, n_taps, dtype='float'):
+        self.buffer = np.zeros(n_taps, dtype)
 
     def update_buffer(self, chunk):
         if len(chunk) < len(self.buffer):
@@ -258,10 +291,11 @@ if __name__== '__main__':
     x, amp = get_x_chirp(fs)
     x += np.random.normal(size=len(x))*0.0001  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
     delay = 0
-    #filt = WHilbertFilter(500, fs, [8, 12], delay)
+    filt = WHilbertFilter(500, fs, [8, 12], delay)
     #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
     #filt = AdaptiveEnvelopePredictor(filt, 500, -50)
-    filt = FiltFiltARHilbertFilter([8,12], fs, 500, 500, 40, delay, ar_order=100)
+    #filt = FiltFiltARHilbertFilter([8,12], fs, 500, 500, 40, delay, ar_order=100)
+    #filt = ARCFIRBandEnvelopeDetector([8,12], fs, delay, delay_threshold=50)
 
     import pylab as plt
     y_hat = np.abs(rt_emulate(filt, x, 20))[delay if delay>0 else None:delay if delay<0 else None]

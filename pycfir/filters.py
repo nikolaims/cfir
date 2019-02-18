@@ -5,12 +5,14 @@ from statsmodels.regression.linear_model import yule_walker
 
 
 
-def get_x_chirp(fs, f0=10, f1=10):
+def get_x_chirp(fs, f0=10, f1=10, return_phase=False):
     np.random.seed(42)
-    t = np.arange(fs * 100) / fs
-    amp = sg.filtfilt(*sg.butter(4, 2 / fs * 2, 'low'), np.random.randn(len(t)), method='gust')
-    x = sg.chirp(t, f0=f0, f1=f1, t1=10, method='linear') * amp
-    return x, np.abs(amp)
+    t = np.arange(fs * 30) / fs
+    amp = np.abs(sg.filtfilt(*sg.butter(4, 2 / fs * 2, 'low'), np.random.randn(len(t)), method='gust'))
+    x = sg.chirp(t, f0=f0, f1=f1, t1=10, method='linear')
+    if return_phase:
+        return x * amp, amp, np.angle(sg.hilbert(x))
+    return x * amp, amp
 
 
 def rt_emulate(wfilter, x, chunk_size=1):
@@ -133,7 +135,7 @@ class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
         self.rls.w -= 0.0000001 * self.rls.w
         self.b = self.rls.w[::-1]
         y = sg.lfilter(self.b, self.a, x)
-        y = np.abs(y[-len(chunk):])
+        y = y[-len(chunk):]
         return y
 
 class AdaptiveEnvelopePredictor:
@@ -236,7 +238,7 @@ class FiltFiltARHilbertFilter:
                 pred.append(ar[::-1].dot(pred[-self.ar_order:]))
 
             an_signal = sg.hilbert(pred)
-            env = an_signal[-self.n_taps_edge_right-self.delay]*np.ones(len(chunk))
+            env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(len(chunk))
 
             #
             # plt.plot(x, alpha=0.1)
@@ -249,7 +251,7 @@ class FiltFiltARHilbertFilter:
 
 
         else:
-            env = y[-self.delay] * np.ones(len(chunk))
+            env = y[-self.delay-len(chunk)+1:-self.delay+1] * np.ones(len(chunk))
 
         return env
 
@@ -294,17 +296,17 @@ if __name__== '__main__':
     filt = WHilbertFilter(500, fs, [8, 12], delay)
     #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
     #filt = AdaptiveEnvelopePredictor(filt, 500, -50)
-    #filt = FiltFiltARHilbertFilter([8,12], fs, 500, 500, 40, delay, ar_order=100)
+    filt = FiltFiltARHilbertFilter([8,12], fs, 1000, 500, 40, delay, ar_order=50)
     #filt = ARCFIRBandEnvelopeDetector([8,12], fs, delay, delay_threshold=50)
 
     import pylab as plt
-    y_hat = np.abs(rt_emulate(filt, x, 20))[delay if delay>0 else None:delay if delay<0 else None]
-    y = amp[-delay if delay<0 else None:-delay if delay>0 else None]
+    y_hat = rt_emulate(filt, x, 1)[delay if delay>0 else None:delay if delay<0 else None]
+    y = x[-delay if delay<0 else None:-delay if delay>0 else None]
     plt.plot(y_hat)
     plt.plot(y)
     plt.show()
 
-    print(np.corrcoef(y[30000:], y_hat[30000:])[1,0])
+    print(np.corrcoef(y[1000:], y_hat[1000:])[1,0])
 
     #plt.figure()
     #plt.plot(filt.rls.w)

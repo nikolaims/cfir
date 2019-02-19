@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import h5py
 import pylab as plt
 import scipy.signal as sg
@@ -14,14 +15,16 @@ WELCH_NPERSEG = FS
 
 
 # collect data
-rests = np.load('data/rest_state_probes.npy')
+eeg_df = pd.read_pickle('data/rest_state_probes_info.pkl')
 
 # estimate spectra
 freq = np.fft.rfftfreq(WELCH_NPERSEG, 1 / FS)
 alpha_mask = np.logical_and(freq > ALPHA_BAND_EXT[0], freq < ALPHA_BAND_EXT[1])
 background_spectra = []
 alpha_peaks = []
-for x in rests:
+for dataset, data in eeg_df.groupby('dataset'):
+
+    x = data['eeg'].values
     # welch boxcar window
     pxx = sg.welch(x, FS, window=np.ones(WELCH_NPERSEG), scaling='spectrum')[1] ** 0.5
 

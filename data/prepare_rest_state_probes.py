@@ -3,6 +3,7 @@ import numpy as np
 import scipy.signal as sg
 import sys
 import h5py
+from pycfir.filters import band_hilbert
 
 # import nfb lab data loader
 sys.path.insert(0, '/home/kolai/Projects/nfblab/nfb')
@@ -21,7 +22,8 @@ info = pd.read_csv('data/alpha_subject_2.csv')
 datasets = [d for d in info['dataset'].unique() if (d is not np.nan)
             and (info.query('dataset=="{}"'.format(d))['type'].values[0] in ['FB0', 'FBMock', 'FB250', 'FB500'])][:]
 
-eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left', 'band_right', 'eeg'])
+eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left', 'band_right', 'eeg', 'an_signal'])
+eeg_df['an_signal'] = eeg_df['an_signal'].astype('complex')
 
 # store data
 for j_dataset, dataset in enumerate(datasets):
@@ -45,7 +47,7 @@ for j_dataset, dataset in enumerate(datasets):
     df = df.loc[th<GFP_THRESHOLD]
 
     # define SNR
-    x = df['P4'].values[10*FS:]
+    x = df['P4'].values[5*FS:]
     freq, pxx = sg.welch(x, FS, nperseg=FS * 2)
 
     # find individual alpha
@@ -58,14 +60,16 @@ for j_dataset, dataset in enumerate(datasets):
     snr = sig / noise
 
     # drop noisy datasets
-    if len(x) < 160*FS: continue
+    if len(x) < 170*FS: continue
+
+    # save x
+    an = band_hilbert(x, fs, band)[5*FS:165*FS]
+    x = x[5*FS:165*FS]
 
     # save info
     eeg_df = eeg_df.append(pd.DataFrame({'sim': 0, 'dataset': dataset, 'snr': snr,
-                                 'band_left': band[0], 'band_right': band[1], 'eeg': x}), ignore_index=True)
-
-    # save x
-    x = x[:160*FS]
+                                 'band_left': band[0], 'band_right': band[1], 'eeg': x, 'an_signal': an},),
+                           ignore_index=True)
 
 
 

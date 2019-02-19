@@ -10,6 +10,7 @@ import pickle
 ALPHA_BAND_EXT = (7, 13)
 ALPHA_BAND_HALFWIDTH = 2
 ALPHA_MAIN_FREQ = 10
+ALPHA_BAND = (ALPHA_MAIN_FREQ - ALPHA_BAND_HALFWIDTH, ALPHA_MAIN_FREQ + ALPHA_BAND_HALFWIDTH)
 FS = 500
 WELCH_NPERSEG = FS
 
@@ -100,8 +101,8 @@ alpha_sim *= (alpha_spectrum[alpha_mask]).mean()/(pxx_full[alpha_mask]**0.5).mea
 alpha_sim_an = sg.hilbert(alpha_sim)
 
 # pickle dump
-np.save('data/rest_state_alpha_sim_analytic.npy', alpha_sim_an)
-np.save('data/rest_state_background_sim.npy', background_sim)
+# np.save('data/rest_state_alpha_sim_analytic.npy', alpha_sim_an)
+# np.save('data/rest_state_background_sim.npy', background_sim)
 
 # crop edges
 crop_samples = 10*FS
@@ -146,3 +147,13 @@ axes[-1].plot(t, np.abs(alpha_sim_an) * snrs[-1])
 plt.xlim(0, 10)
 plt.xlabel('Time, s')
 plt.show()
+
+
+for j, snr in enumerate(np.linspace(eeg_df['snr'].min(), eeg_df['snr'].max(), len(eeg_df['dataset'].unique()))):
+    eeg = background_sim + alpha_sim * (snr-1)
+    an = alpha_sim_an * (snr-1)
+    eeg_df = eeg_df.append(pd.DataFrame({'sim': 1, 'dataset': 'sim{}'.format(j), 'snr': snr,
+                           'band_left': ALPHA_BAND[0], 'band_right': ALPHA_BAND[1], 'eeg': eeg, 'an_signal': an}),
+                        ignore_index=True)
+
+

@@ -13,21 +13,8 @@ FS = 500
 WELCH_NPERSEG = FS
 
 
-def load_raw_p4_rest_probes():
-    # load 100 second probes (Baseline) for experiments in data_folder
-    data_folder = '/home/kolai/Data/alpha_delay2'
-    for exp_folder in map(lambda x: os.path.join(data_folder, x), os.listdir(data_folder)):
-        with h5py.File(os.path.join(exp_folder, 'experiment_data.h5')) as f:
-            if 'protocol4' not in f or len(f) < 20: continue
-            fs_ = int(f['fs'].value)
-            p4_index = list(map(bytes.decode, f['channels'][:])).index('P4')
-            x = f['protocol4/raw_data'][:][20 * FS:FS * 120, p4_index]
-            if len(x)<FS*70 or f['protocol4'].attrs['name']!= 'Baseline' or fs_!=FS: continue
-            print(f['protocol4'].attrs['name'], len(x) / FS, FS)
-            yield x
-
 # collect data
-rests = np.array([x for x in load_raw_p4_rest_probes()])
+rests = np.load('data/rest_state_probes.npy')
 
 # estimate spectra
 freq = np.fft.rfftfreq(WELCH_NPERSEG, 1 / FS)
@@ -74,7 +61,7 @@ plt.show()
 
 
 # simulate background eeg
-n_seconds_to_sim = 120
+n_seconds_to_sim = 140
 def sim_from_spec(n_seconds, freq, spectrum):
     n_samples = FS * n_seconds + 1
 
@@ -107,24 +94,23 @@ _, pxx_full = sg.welch(alpha_sim, FS, window=np.ones(FS), scaling='spectrum')
 alpha_sim *= (alpha_spectrum[alpha_mask]).mean()/(pxx_full[alpha_mask]**0.5).mean()
 
 # extract envelope
-alpha_sim_env = np.abs(sg.hilbert(alpha_sim))
+alpha_sim_an = sg.hilbert(alpha_sim)
 
 # pickle dump
-sim_dict = {'alpha': alpha_sim, 'envelope': alpha_sim_env, 'noise': background_sim}
-with open('alpha_sim_snr.pkl', 'wb') as handle:
-    pickle.dump(sim_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+np.save('data/rest_state_alpha_sim_analytic.npy', alpha_sim_an)
+np.save('data/rest_state_background_sim.npy', background_sim)
 
 # crop edges
 crop_samples = 10*FS
 background_sim = background_sim[crop_samples:-crop_samples]
 alpha_sim = alpha_sim[crop_samples:-crop_samples]
-alpha_sim_env = alpha_sim_env[crop_samples:-crop_samples]
+alpha_sim_an = alpha_sim_an[crop_samples:-crop_samples]
 
 # snr normalization
 noise_magnitude = np.mean(sg.welch(background_sim, FS, window=np.ones(FS), scaling='spectrum')[1][alpha_mask] ** 0.5)
 alpha_magnitude = np.mean(sg.welch(alpha_sim, FS, window=np.ones(FS), scaling='spectrum')[1][alpha_mask] ** 0.5)
 alpha_sim *= noise_magnitude/alpha_magnitude
-alpha_sim_env *= noise_magnitude/alpha_magnitude
+alpha_sim_an *= noise_magnitude / alpha_magnitude
 
 # viz snrs and specra
 snrs = np.concatenate([[0], np.logspace(0, 1, 5)])
@@ -139,7 +125,7 @@ plt.xlabel('Frequency, Hz')
 plt.ylabel('Magnitude, V')
 plt.xlim(0, 40)
 plt.ylim(1e-7, 1e-4)
-plt.plot(freq, background_spectrum, label='Median real\nP4 spectrum', alpha=0.6)
+plt.plot(freq, background_spectrum, 'k', label='Median real\nP4 spectrum', alpha=0.6)
 plt.semilogy()
 plt.legend()
 plt.show()
@@ -153,7 +139,7 @@ for color, snr, ax in zip(cm, snrs, axes):
     ax.set_yticks([])
     ax.set_ylabel('SNR = {:.2f}'.format(snr))
 axes[-1].plot(t, alpha_sim * snrs[-1] , alpha=0.6)
-axes[-1].plot(t, alpha_sim_env * snrs[-1] )
+axes[-1].plot(t, np.abs(alpha_sim_an) * snrs[-1])
 plt.xlim(0, 10)
 plt.xlabel('Time, s')
 plt.show()

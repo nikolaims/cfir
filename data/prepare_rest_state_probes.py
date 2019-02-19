@@ -61,4 +61,4 @@ for j_dataset, dataset in enumerate(datasets):
 
 # save probes
 probes = np.array(probes)
-np.save('rest_state_probes.npy', probes)
+np.save('data/rest_state_probes.npy', probes)

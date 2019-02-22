@@ -260,11 +260,17 @@ class FiltFiltARHilbertFilter:
 
 class RectEnvDetector:
     def __init__(self, band, fs, n_taps_bandpass, n_taps_smooth, smooth_cutoff=None):
-        self.b_bandpass = sg.firwin2(n_taps_bandpass, [0, band[0], band[0], band[1], band[1], fs/2], [0, 0, 1, 1, 0, 0], fs=fs)
+        if n_taps_bandpass > 0:
+            self.b_bandpass = sg.firwin2(n_taps_bandpass, [0,band[0],band[0],band[1],band[1],fs/2], [0,0,1,1,0,0],fs=fs)
+            self.zi_bandpass = np.zeros(n_taps_bandpass - 1)
+        else:
+            self.b_bandpass, self.zi_bandpass = np.array([1., 0]), np.zeros(1)
         if smooth_cutoff is None: smooth_cutoff = band[1]- band[0]
-        self.b_smooth = sg.firwin2(n_taps_smooth, [0, smooth_cutoff, smooth_cutoff, fs/2], [1, 1, 0, 0], fs=fs)
-        self.zi_bandpass = np.zeros(n_taps_bandpass-1)
-        self.zi_smooth = np.zeros(n_taps_smooth-1)
+        if n_taps_smooth > 0:
+            self.b_smooth = sg.firwin2(n_taps_smooth, [0, smooth_cutoff, smooth_cutoff, fs/2], [1, 1, 0, 0], fs=fs)
+            self.zi_smooth = np.zeros(n_taps_smooth - 1)
+        else:
+            self.b_smooth, self.zi_smooth = np.array([1., 0]), np.zeros(1)
 
     def apply(self, chunk):
         y, self.zi_bandpass = sg.lfilter(self.b_bandpass, [1.],  chunk, zi=self.zi_bandpass)
@@ -292,16 +298,17 @@ if __name__== '__main__':
     fs = 500
     x, amp = get_x_chirp(fs)
     x += np.random.normal(size=len(x))*0.0001  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
-    delay = 0
-    filt = WHilbertFilter(500, fs, [8, 12], delay)
+    delay = -20
+    filt = RectEnvDetector([8, 12], fs, 0, delay*2)
+    #filt = WHilbertFilter(500, fs, [8, 12], delay)
     #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
     #filt = AdaptiveEnvelopePredictor(filt, 500, -50)
-    filt = FiltFiltARHilbertFilter([8,12], fs, 1000, 500, 40, delay, ar_order=50)
+    #filt = FiltFiltARHilbertFilter([8,12], fs, 1000, 500, 40, delay, ar_order=50)
     #filt = ARCFIRBandEnvelopeDetector([8,12], fs, delay, delay_threshold=50)
 
     import pylab as plt
     y_hat = rt_emulate(filt, x, 1)[delay if delay>0 else None:delay if delay<0 else None]
-    y = x[-delay if delay<0 else None:-delay if delay>0 else None]
+    y = amp[-delay if delay<0 else None:-delay if delay>0 else None]
     plt.plot(y_hat)
     plt.plot(y)
     plt.show()

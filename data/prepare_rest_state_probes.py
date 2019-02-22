@@ -73,4 +73,4 @@ for snr_left, snr_right in zip(bins[:-1], bins[1:]):
 eeg_df = eeg_df.loc[eeg_df['dataset'].isin(subjects)]
 
 # save info
-eeg_df.to_pickle('data/rest_state_probes_info.pkl')
+eeg_df.to_pickle('data/rest_state_probes_real.pkl')

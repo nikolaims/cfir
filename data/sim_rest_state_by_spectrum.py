@@ -6,17 +6,14 @@ import scipy.signal as sg
 import os
 from seaborn import color_palette
 import pickle
+from pycfir.utils import interval_mask, individual_band_snr, magnitude_spectrum, interval_flankers_mask
+from data.settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, WELCH_NPERSEG, ALPHA_BAND
 
-ALPHA_BAND_EXT = (7, 13)
-ALPHA_BAND_HALFWIDTH = 2
-ALPHA_MAIN_FREQ = 10
-ALPHA_BAND = (ALPHA_MAIN_FREQ - ALPHA_BAND_HALFWIDTH, ALPHA_MAIN_FREQ + ALPHA_BAND_HALFWIDTH)
-FS = 500
-WELCH_NPERSEG = FS
+
 
 
 # collect data
-eeg_df = pd.read_pickle('data/rest_state_probes_info.pkl')
+eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
 
 # estimate spectra
 freq = np.fft.rfftfreq(WELCH_NPERSEG, 1 / FS)
@@ -27,11 +24,13 @@ for dataset, data in eeg_df.groupby('dataset'):
 
     x = data['eeg'].values
     # welch boxcar window
-    pxx = sg.welch(x, FS, window=np.ones(WELCH_NPERSEG), scaling='spectrum')[1] ** 0.5
+    _freq, pxx = magnitude_spectrum(x, FS)
+    band, snr = individual_band_snr(x, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH)
+    #pxx = sg.welch(x, FS, window=np.ones(WELCH_NPERSEG), scaling='spectrum')[1] ** 0.5
 
     # find individual alpha mask range
-    main_freq = freq[alpha_mask][np.argmax(pxx[alpha_mask])]
-    ind_alpha_mask = np.abs(freq - main_freq) <= ALPHA_BAND_HALFWIDTH
+
+    ind_alpha_mask = interval_mask(freq, band)
 
     # store alpha peak minus flanker interpolation
     alpha_pxx = pxx[ind_alpha_mask] - np.interp(freq[ind_alpha_mask], freq[~ind_alpha_mask], pxx[~ind_alpha_mask])
@@ -42,7 +41,7 @@ for dataset, data in eeg_df.groupby('dataset'):
     background_spectra.append(ppx_no_alpha)
 
     # viz spectra
-    plt.plot(main_freq, pxx[freq == main_freq], '.k')
+    plt.plot(np.mean(band), pxx[freq == np.mean(band)], '.k')
     plt.plot(freq, pxx, 'b', alpha=0.1)
 
 # background spectrum
@@ -51,7 +50,8 @@ background_spectrum[0] = 0
 
 # alpha spectrum
 alpha_spectrum = np.zeros_like(background_spectrum)
-alpha_mask = np.abs(freq - ALPHA_MAIN_FREQ) <= ALPHA_BAND_HALFWIDTH
+alpha_mask = interval_mask(freq, ALPHA_BAND)
+alpha_flankers_mask = interval_flankers_mask(freq, ALPHA_BAND, FLANKER_WIDTH)
 alpha_spectrum[alpha_mask] = np.median(alpha_peaks, 0)
 
 # viz background spectrum
@@ -87,15 +87,15 @@ def sim_from_spec(n_seconds, freq, spectrum):
 background_sim = sim_from_spec(n_seconds_to_sim, freq, background_spectrum)
 
 # normalize background eeg sim
-_, pxx_full = sg.welch(background_sim, FS, window=np.ones(FS), scaling='spectrum')
-background_sim *= (background_spectrum[alpha_mask]).mean() / (pxx_full[alpha_mask] ** 0.5).mean()
+_, pxx_full = magnitude_spectrum(background_sim, FS)
+background_sim *= background_spectrum[alpha_flankers_mask].mean() / pxx_full[alpha_flankers_mask].mean()
 
 # simulate alpha sim
 alpha_sim = sim_from_spec(n_seconds_to_sim, freq, alpha_spectrum)
 
 # normalize alpha sim
-_, pxx_full = sg.welch(alpha_sim, FS, window=np.ones(FS), scaling='spectrum')
-alpha_sim *= (alpha_spectrum[alpha_mask]).mean()/(pxx_full[alpha_mask]**0.5).mean()
+_, pxx_full = magnitude_spectrum(alpha_sim, FS)
+alpha_sim *= alpha_spectrum[alpha_mask].mean()/pxx_full[alpha_mask].mean()
 
 # extract envelope
 alpha_sim_an = sg.hilbert(alpha_sim)
@@ -111,17 +111,18 @@ alpha_sim = alpha_sim[crop_samples:-crop_samples]
 alpha_sim_an = alpha_sim_an[crop_samples:-crop_samples]
 
 # snr normalization
-noise_magnitude = np.mean(sg.welch(background_sim, FS, window=np.ones(FS), scaling='spectrum')[1][alpha_mask] ** 0.5)
-alpha_magnitude = np.mean(sg.welch(alpha_sim, FS, window=np.ones(FS), scaling='spectrum')[1][alpha_mask] ** 0.5)
-alpha_sim *= noise_magnitude/alpha_magnitude
-alpha_sim_an *= noise_magnitude / alpha_magnitude
+noise_magnitude = magnitude_spectrum(background_sim, FS)[1][alpha_flankers_mask].mean()
+noise_magnitude_alpha = magnitude_spectrum(background_sim, FS)[1][alpha_mask].mean()
+alpha_magnitude = magnitude_spectrum(alpha_sim, FS)[1][alpha_mask].mean()
+alpha_sim *= (4*noise_magnitude**2 - noise_magnitude_alpha**2)**0.5 / alpha_magnitude
+alpha_sim_an *= (4*noise_magnitude**2 - noise_magnitude_alpha**2)**0.5 / alpha_magnitude
 
 # viz snrs and specra
-snrs = np.concatenate([[0], np.logspace(0, 1, 5)])
+snrs = np.linspace(0.1, 2, len(eeg_df['dataset'].unique()))
 cm = color_palette('Reds_r', len(snrs))
 
 for color, snr in zip(cm, snrs):
-    sim_spectrum = sg.welch(background_sim + alpha_sim  * snr, FS, window=np.ones(FS), scaling='spectrum')[1] ** 0.5
+    _freq, sim_spectrum = magnitude_spectrum(background_sim + alpha_sim*snr, FS)
 
     plt.plot(freq, sim_spectrum, color=color, label='SNR = {:.2f}'.format(snr))
 
@@ -135,7 +136,7 @@ plt.legend()
 plt.show()
 
 # viz ts
-fig, axes = plt.subplots(len(snrs), sharex=True)
+fig, axes = plt.subplots(len(snrs), sharex=True, sharey=True)
 plt.subplots_adjust(hspace=0)
 t = np.arange(len(background_sim))/FS
 for color, snr, ax in zip(cm, snrs, axes):
@@ -148,12 +149,19 @@ plt.xlim(0, 10)
 plt.xlabel('Time, s')
 plt.show()
 
+# save sim
+for j, snr in enumerate(snrs):
+    eeg = background_sim + alpha_sim * snr
+    an = alpha_sim_an * snr
 
-for j, snr in enumerate(np.linspace(eeg_df['snr'].min(), eeg_df['snr'].max(), len(eeg_df['dataset'].unique()))):
-    eeg = background_sim + alpha_sim * (snr-1)
-    an = alpha_sim_an * (snr-1)
+
+    # find individual alpha
+    band, snr_ = individual_band_snr(eeg, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH)
+    print(snr, snr_, band)
+
     eeg_df = eeg_df.append(pd.DataFrame({'sim': 1, 'dataset': 'sim{}'.format(j), 'snr': snr,
                            'band_left': ALPHA_BAND[0], 'band_right': ALPHA_BAND[1], 'eeg': eeg, 'an_signal': an}),
                         ignore_index=True)
 
-
+# save data
+eeg_df.to_pickle('data/rest_state_probes.pkl')

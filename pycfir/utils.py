@@ -1,6 +1,6 @@
 import scipy.signal as sg
 import numpy as np
-from data.settings import WELCH_NPERSEG
+from settings import WELCH_NPERSEG
 
 def interval_mask(x, interval):
     return (x >= interval[0]) & (x <= interval[1])

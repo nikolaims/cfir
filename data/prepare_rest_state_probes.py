@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 import h5py
-from data.settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, N_SUBJECTS
+from settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, N_SUBJECTS
 from pycfir.filters import band_hilbert
 from pycfir.utils import individual_band_snr
 

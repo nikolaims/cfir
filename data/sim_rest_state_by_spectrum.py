@@ -1,13 +1,10 @@
 import numpy as np
 import pandas as pd
-import h5py
 import pylab as plt
 import scipy.signal as sg
-import os
 from seaborn import color_palette
-import pickle
 from pycfir.utils import interval_mask, individual_band_snr, magnitude_spectrum, interval_flankers_mask
-from data.settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, WELCH_NPERSEG, ALPHA_BAND
+from settings import FLANKER_WIDTH, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, WELCH_NPERSEG, ALPHA_BAND
 
 
 

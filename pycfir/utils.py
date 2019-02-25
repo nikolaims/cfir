@@ -1,6 +1,6 @@
 import scipy.signal as sg
 import numpy as np
-from settings import WELCH_NPERSEG
+from settings import WELCH_NPERSEG, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH
 
 def interval_mask(x, interval):
     return (x >= interval[0]) & (x <= interval[1])
@@ -14,7 +14,8 @@ def magnitude_spectrum(x, fs):
     freq, pxx = sg.welch(x, fs, window=np.ones(WELCH_NPERSEG), scaling='spectrum')
     return freq, pxx**0.5
 
-def individual_band_snr(x, fs, main_freq_search_band, band_half_width, flanker_width):
+def individual_band_snr(x, fs, main_freq_search_band=ALPHA_BAND_EXT, band_half_width=ALPHA_BAND_HALFWIDTH,
+                        flanker_width=FLANKER_WIDTH):
     freq, pxx = magnitude_spectrum(x, fs)
     search_band_mask = interval_mask(freq, main_freq_search_band)
     main_freq = freq[search_band_mask][np.argmax(pxx[search_band_mask])]

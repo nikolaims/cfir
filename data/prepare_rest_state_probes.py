@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import sys
 import h5py
-from settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, N_SUBJECTS
+from settings import FLANKER_WIDTH, FS, GFP_THRESHOLD, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, N_SUBJECTS, N_SAMPLES_TEST, \
+    N_SAMPLES_TRAIN
 from pycfir.filters import band_hilbert
 from pycfir.utils import individual_band_snr
 
@@ -16,7 +17,7 @@ info = pd.read_csv('data/alpha_subject_2.csv')
 datasets = [d for d in info['dataset'].unique() if (d is not np.nan)
             and (info.query('dataset=="{}"'.format(d))['type'].values[0] in ['FB0', 'FBMock', 'FB250', 'FB500'])][:]
 
-eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left', 'band_right', 'eeg', 'an_signal'])
+eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left_train', 'band_right_train', 'eeg', 'an_signal'])
 eeg_df['an_signal'] = eeg_df['an_signal'].astype('complex')
 
 # store data
@@ -48,22 +49,23 @@ for j_dataset, dataset in enumerate(datasets):
     print(band, snr)
 
     # drop noisy datasets
-    if len(x) < 170* FS: continue
+    if len(x) < N_SAMPLES_TRAIN+N_SAMPLES_TEST+10 * FS: continue
 
     # save x
-    an = band_hilbert(x, fs, band)[5 * FS:165 * FS]
-    x = x[5 * FS:165 * FS]
+    an = band_hilbert(x, fs, band)[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
+    x = x[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
 
     # save info
+    band, snr = individual_band_snr(x[:N_SAMPLES_TRAIN], FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH)
     eeg_df = eeg_df.append(pd.DataFrame({'sim': 0, 'dataset': dataset, 'snr': snr,
-                                 'band_left': band[0], 'band_right': band[1], 'eeg': x, 'an_signal': an},),
+                                 'band_left_train': band[0], 'band_right_train': band[1], 'eeg': x, 'an_signal': an},),
                            ignore_index=True)
 
 
 
 
 # select subjects
-gran = 2
+gran = 3
 bins = np.linspace(eeg_df['snr'].min(), eeg_df['snr'].max(), N_SUBJECTS//gran + 1)
 subjects = []
 for snr_left, snr_right in zip(bins[:-1], bins[1:]):

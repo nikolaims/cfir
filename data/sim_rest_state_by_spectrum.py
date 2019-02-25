@@ -4,7 +4,7 @@ import pylab as plt
 import scipy.signal as sg
 from seaborn import color_palette
 from pycfir.utils import interval_mask, individual_band_snr, magnitude_spectrum, interval_flankers_mask
-from settings import FLANKER_WIDTH, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, WELCH_NPERSEG, ALPHA_BAND
+from settings import FLANKER_WIDTH, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, WELCH_NPERSEG, ALPHA_BAND, N_SAMPLES_TRAIN, N_SAMPLES_TEST
 
 
 
@@ -62,7 +62,7 @@ plt.show()
 
 
 # simulate background eeg
-n_seconds_to_sim = 140
+n_seconds_to_sim = (N_SAMPLES_TRAIN + N_SAMPLES_TEST)//FS + 20
 def sim_from_spec(n_seconds, freq, spectrum):
     n_samples = FS * n_seconds + 1
 
@@ -103,9 +103,10 @@ alpha_sim_an = sg.hilbert(alpha_sim)
 
 # crop edges
 crop_samples = 10*FS
-background_sim = background_sim[crop_samples:-crop_samples]
-alpha_sim = alpha_sim[crop_samples:-crop_samples]
-alpha_sim_an = alpha_sim_an[crop_samples:-crop_samples]
+background_sim = background_sim[crop_samples:-crop_samples-1]
+alpha_sim = alpha_sim[crop_samples:-crop_samples-1]
+alpha_sim_an = alpha_sim_an[crop_samples:-crop_samples-1]
+print(alpha_sim.shape)
 
 # snr normalization
 noise_magnitude = magnitude_spectrum(background_sim, FS)[1][alpha_flankers_mask].mean()
@@ -153,12 +154,12 @@ for j, snr in enumerate(snrs):
 
 
     # find individual alpha
-    band, snr_ = individual_band_snr(eeg, FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH)
+    band, snr_ = individual_band_snr(eeg[:N_SAMPLES_TRAIN], FS, ALPHA_BAND_EXT, ALPHA_BAND_HALFWIDTH, FLANKER_WIDTH)
     print(snr, snr_, band)
 
     eeg_df = eeg_df.append(pd.DataFrame({'sim': 1, 'dataset': 'sim{}'.format(j), 'snr': snr,
-                           'band_left': ALPHA_BAND[0], 'band_right': ALPHA_BAND[1], 'eeg': eeg, 'an_signal': an}),
-                        ignore_index=True)
+                    'band_left_train': ALPHA_BAND[0], 'band_right_train': ALPHA_BAND[1], 'eeg': eeg, 'an_signal': an}),
+                    ignore_index=True)
 
 # save data
 eeg_df.to_pickle('data/rest_state_probes.pkl')

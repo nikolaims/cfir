@@ -175,6 +175,7 @@ class SlidingWindowFilter:
 class SlidingWindowBuffer:
     def __init__(self, n_taps, dtype='float'):
         self.buffer = np.zeros(n_taps, dtype)
+        self.n_taps = n_taps
 
     def update_buffer(self, chunk):
         if len(chunk) < len(self.buffer):
@@ -186,16 +187,20 @@ class SlidingWindowBuffer:
 
 
 class WHilbertFilter:
-    def __init__(self, n_taps, fs, band, delay):
+    def __init__(self, n_taps, fs, band, delay, max_chunk_size):
         self.delay = delay
         self.fs = fs
         self.band = band
         self.buffer = SlidingWindowBuffer(n_taps)
+        self.max_chunk_size = max_chunk_size
 
     def apply(self, chunk):
-        x = self.buffer.update_buffer(chunk)
-        y = band_hilbert(x, self.fs, self.band)
-        return y[-self.delay-1] * np.ones(len(chunk))
+        if chunk.shape[0] < self.buffer.n_taps:
+            x = self.buffer.update_buffer(chunk)
+            y = band_hilbert(x, self.fs, self.band)
+            return y[-self.delay-1] * np.ones(chunk.shape[0])
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
 
 
 
@@ -298,8 +303,8 @@ if __name__== '__main__':
     fs = 500
     x, amp = get_x_chirp(fs)
     x += np.random.normal(size=len(x))*0.0001  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
-    delay = -20
-    filt = RectEnvDetector([8, 12], fs, 0, delay*2)
+    delay = 0
+    filt = RectEnvDetector([8, 12], fs, delay*2, 0)
     #filt = WHilbertFilter(500, fs, [8, 12], delay)
     #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
     #filt = AdaptiveEnvelopePredictor(filt, 500, -50)

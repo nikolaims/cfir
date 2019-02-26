@@ -9,7 +9,7 @@ from copy import deepcopy
 
 
 def grid_apply_method(method_class, kwargs_grid):
-    eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
+    eeg_df = pd.read_pickle('data/rest_state_probes.pkl')
 
     kwargs_grid['dataset'] = eeg_df['dataset'].unique()
     keys, values = zip(*kwargs_grid.items())
@@ -21,8 +21,13 @@ def grid_apply_method(method_class, kwargs_grid):
         x = df['eeg'].values
         band = (df['band_left_train'].values[0], df['band_right_train'].values[0])
         method = method_class(band=band, fs=FS, **kwargs)
-        y = method.apply(x[:N_SAMPLES_TRAIN+N_SAMPLES_TEST])
-        res[j_kwargs, :] = y
+        y = method.apply(x[:N_SAMPLES_TRAIN])
+        res[j_kwargs, :N_SAMPLES_TRAIN] = y
+
+        method = method_class(band=band, fs=FS, **kwargs)
+        y = method.apply(x[N_SAMPLES_TRAIN:N_SAMPLES_TRAIN+N_SAMPLES_TEST])
+        res[j_kwargs, N_SAMPLES_TRAIN:N_SAMPLES_TRAIN+N_SAMPLES_TEST] = y
+
     return res, pd.DataFrame(kwargs_list)
 
 
@@ -40,7 +45,7 @@ kwargs_df.to_csv('results/rect_kwargs.csv', index=False)
 # cFIR
 kwargs_grid = {
     'delay': DELAY_RANGE,
-    'n_taps': np.arange(200, 2000 + 1, 100)
+    'n_taps': np.arange(250, 2000 + 1, 250)
 }
 res, kwargs_df = grid_apply_method(CFIRBandEnvelopeDetector, kwargs_grid)
 np.save('results/cfir.npy', res)
@@ -50,7 +55,7 @@ kwargs_df.to_csv('results/cfir_kwargs.csv', index=False)
 #wHilbert
 kwargs_grid = {
     'delay': np.arange(DELAY_RANGE[DELAY_RANGE>0].min(), DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]),
-    'n_taps': np.arange(200, 2000 + 1, 100),
+    'n_taps': np.arange(250, 2000 + 1, 250),
     'max_chunk_size': [10]
 }
 

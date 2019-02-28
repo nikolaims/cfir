@@ -65,12 +65,16 @@ for j_dataset, dataset in enumerate(datasets):
 
 
 # select subjects
-gran = 3
-bins = np.linspace(eeg_df['snr'].min(), eeg_df['snr'].max(), N_SUBJECTS//gran + 1)
-subjects = []
-for snr_left, snr_right in zip(bins[:-1], bins[1:]):
-    for g in range(gran):
-        subjects.append(eeg_df.query('snr>{} & snr<={}'.format(snr_left, snr_right))['dataset'].unique()[g])
+from sklearn.cluster import KMeans
+
+datasets = eeg_df['dataset'].unique()
+snrs = np.array([eeg_df.query('dataset=="{}"'.format(d)).snr.values[0] for d in datasets])
+
+k_means = KMeans(n_clusters=N_SUBJECTS, random_state=42)
+k_means.fit(snrs[:, None])
+
+subjects = [datasets[k_means.labels_==k][0] for k in range(N_SUBJECTS)]
+
 
 eeg_df = eeg_df.loc[eeg_df['dataset'].isin(subjects)]
 

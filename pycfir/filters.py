@@ -118,25 +118,28 @@ class ARCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
 
 
 class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
-    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000, mu=0.9, max_chunk_size=10):
         super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
-        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=0.9)
+        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=mu)
         self.rls.w = self.b[::-1]
         self.buffer = SlidingWindowBuffer(len(self.b) +  ada_n_taps // 2 - delay)
         self.fs = fs
         self.band = band
         self.ada_n_taps = ada_n_taps
         self.delay = delay
+        self.max_chunk_size = max_chunk_size
 
     def apply(self, chunk: np.ndarray):
-        x = self.buffer.update_buffer(chunk)
-        y = band_hilbert(x[-self.ada_n_taps:], self.fs, self.band)[-self.ada_n_taps//2-1]
-        self.rls.adapt(y, x[:len(self.b)])
-        self.rls.w -= 0.0000001 * self.rls.w
-        self.b = self.rls.w[::-1]
-        y = sg.lfilter(self.b, self.a, x)
-        y = y[-len(chunk):]
-        return y
+        if len(chunk) <= self.max_chunk_size:
+            x = self.buffer.update_buffer(chunk)
+            y = band_hilbert(x[-self.ada_n_taps:], self.fs, self.band)[-self.ada_n_taps//2-1]
+            self.rls.adapt(y, x[:len(self.b)])
+            self.rls.w -= 0.0000001 * self.rls.w
+            self.b = self.rls.w[::-1]
+            y = sg.lfilter(self.b, self.a, x)
+            return y[-len(chunk):]
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
 
 class AdaptiveEnvelopePredictor:
     def __init__(self, env_detector, n_taps, delay):
@@ -219,57 +222,61 @@ class FiltFiltRectSWFilter(SlidingWindowFilter):
 
 
 class FiltFiltARHilbertFilter:
-    def __init__(self, band, fs, n_taps_buffer, n_taps_bandpass, n_taps_edge, delay, ar_order=50):
+    def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1):
+        n_taps_buffer = buffer_s*fs
         self.buffer = SlidingWindowBuffer(n_taps_buffer)
-        #self.b_bandpass = sg.firwin2(n_taps_bandpass, [0, band[0], band[0], band[1], band[1], fs / 2], [0, 0, 1, 1, 0, 0], fs=fs)
-        self.ba_bandpass = sg.butter(1, [band[0]/fs*2, band[1]/fs*2], 'band')
+        self.ba_bandpass = sg.butter(butter_order, [band[0]/fs*2, band[1]/fs*2], 'band')
         self.delay = delay
         self.n_taps_edge_left = n_taps_edge
         self.n_taps_edge_right = max(n_taps_edge, n_taps_edge-delay)
         self.ar_order = ar_order
         self.band = band
         self.fs = fs
+        self.max_chunk_size=max_chunk_size
 
     def apply(self, chunk):
-        x = self.buffer.update_buffer(chunk)
-       # y = sg.filtfilt(*self.ba_bandpass, x)
-        y = band_hilbert(x, self.fs, self.band)
-        if self.delay < self.n_taps_edge_left:
+        if chunk.shape[0] <= self.max_chunk_size:
+            x = self.buffer.update_buffer(chunk)
+            y = sg.filtfilt(*self.ba_bandpass, x)
+            if self.delay < self.n_taps_edge_left:
 
-            ar, s = yule_walker(y.real[:-self.n_taps_edge_left], self.ar_order, 'mle')
+                ar, s = yule_walker(y.real[:-self.n_taps_edge_left], self.ar_order, 'mle')
 
-            pred = y.real[:-self.n_taps_edge_left].tolist()
-            for _ in range(self.n_taps_edge_left + self.n_taps_edge_right):
-                pred.append(ar[::-1].dot(pred[-self.ar_order:]))
+                pred = y.real[:-self.n_taps_edge_left].tolist()
+                for _ in range(self.n_taps_edge_left + self.n_taps_edge_right):
+                    pred.append(ar[::-1].dot(pred[-self.ar_order:]))
 
-            an_signal = sg.hilbert(pred)
-            env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(len(chunk))
+                an_signal = sg.hilbert(pred)
+                env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(len(chunk))
 
-            #
-            # plt.plot(x, alpha=0.1)
-            # plt.plot(pred, alpha=0.9)
-            # plt.plot(np.abs(an_signal))
-            # plt.plot(y[:-self.n_taps_edge_left], 'k')
-            # plt.plot(y, 'k--')
-            #
-            # plt.show()
+                #
+                # plt.plot(x, alpha=0.1)
+                # plt.plot(pred, alpha=0.9)
+                # plt.plot(np.abs(an_signal))
+                # plt.plot(y[:-self.n_taps_edge_left], 'k')
+                # plt.plot(y, 'k--')
+                #
+                # plt.show()
 
+
+            else:
+                env = sg.hilbert(y)[-self.delay-len(chunk)+1:-self.delay+1] * np.ones(len(chunk))
+
+            return env
 
         else:
-            env = y[-self.delay-len(chunk)+1:-self.delay+1] * np.ones(len(chunk))
-
-        return env
-
-
+            return rt_emulate(self, chunk, self.max_chunk_size)
 
 
 class RectEnvDetector:
-    def __init__(self, band, fs, n_taps_bandpass, n_taps_smooth, smooth_cutoff=None):
+    def __init__(self, band, fs, n_taps_bandpass, delay, smooth_cutoff=None):
         if n_taps_bandpass > 0:
             self.b_bandpass = sg.firwin2(n_taps_bandpass, [0,band[0],band[0],band[1],band[1],fs/2], [0,0,1,1,0,0],fs=fs)
             self.zi_bandpass = np.zeros(n_taps_bandpass - 1)
         else:
             self.b_bandpass, self.zi_bandpass = np.array([1., 0]), np.zeros(1)
+
+        n_taps_smooth = delay * 2 - n_taps_bandpass
         if smooth_cutoff is None: smooth_cutoff = band[1]- band[0]
         if n_taps_smooth > 0:
             self.b_smooth = sg.firwin2(n_taps_smooth, [0, smooth_cutoff, smooth_cutoff, fs/2], [1, 1, 0, 0], fs=fs)
@@ -304,15 +311,16 @@ if __name__== '__main__':
     x, amp = get_x_chirp(fs)
     x += np.random.normal(size=len(x))*0.0001  #+ np.sin(2*np.pi*5*np.arange(len(x))/fs)
     delay = 0
-    filt = RectEnvDetector([8, 12], fs, delay*2, 0)
+    #filt = RectEnvDetector([8, 12], fs, 100, delay)
     #filt = WHilbertFilter(500, fs, [8, 12], delay)
     #filt = CFIRBandEnvelopeDetector([8,12], fs, delay)
+    filt = AdaptiveCFIRBandEnvelopeDetector([8, 12], fs, delay, ada_n_taps=500)
     #filt = AdaptiveEnvelopePredictor(filt, 500, -50)
-    #filt = FiltFiltARHilbertFilter([8,12], fs, 1000, 500, 40, delay, ar_order=50)
+    #filt = FiltFiltARHilbertFilter([8,12], fs, 20, delay, 50, 10, buffer_s=4, butter_order=1)
     #filt = ARCFIRBandEnvelopeDetector([8,12], fs, delay, delay_threshold=50)
 
     import pylab as plt
-    y_hat = rt_emulate(filt, x, 1)[delay if delay>0 else None:delay if delay<0 else None]
+    y_hat = np.abs(filt.apply(x)[delay if delay>0 else None:delay if delay<0 else None])
     y = amp[-delay if delay<0 else None:-delay if delay>0 else None]
     plt.plot(y_hat)
     plt.plot(y)

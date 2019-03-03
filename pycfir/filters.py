@@ -62,7 +62,7 @@ def band_hilbert(x, fs, band, N=None, axis=-1):
 
 
 class CFIRBandEnvelopeDetector:
-    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0):
+    def __init__(self, band, fs, delay=100, n_taps=500, n_fft=2000, reg_coeff=0, **kwargs):
         """
         Complex-valued FIR envelope detector based on analytic signal reconstruction
         :param band: freq. range to apply band-pass filtering
@@ -118,7 +118,7 @@ class ARCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
 
 
 class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
-    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000, mu=0.9, max_chunk_size=10):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000, mu=0.9, max_chunk_size=10, **kwargs):
         super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
         self.rls = pa.filters.FilterRLS(n=len(self.b), mu=mu)
         self.rls.w = self.b[::-1]
@@ -190,7 +190,7 @@ class SlidingWindowBuffer:
 
 
 class WHilbertFilter:
-    def __init__(self, n_taps, fs, band, delay, max_chunk_size):
+    def __init__(self, n_taps, fs, band, delay, max_chunk_size, **kwargs):
         self.delay = delay
         self.fs = fs
         self.band = band
@@ -222,7 +222,7 @@ class FiltFiltRectSWFilter(SlidingWindowFilter):
 
 
 class FiltFiltARHilbertFilter:
-    def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1):
+    def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1, **kwargs):
         n_taps_buffer = buffer_s*fs
         self.buffer = SlidingWindowBuffer(n_taps_buffer)
         self.ba_bandpass = sg.butter(butter_order, [band[0]/fs*2, band[1]/fs*2], 'band')
@@ -269,7 +269,7 @@ class FiltFiltARHilbertFilter:
 
 
 class RectEnvDetector:
-    def __init__(self, band, fs, n_taps_bandpass, delay, smooth_cutoff=None):
+    def __init__(self, band, fs, n_taps_bandpass, delay, smooth_cutoff=None, **kwargs):
         if n_taps_bandpass > 0:
             self.b_bandpass = sg.firwin2(n_taps_bandpass, [0,band[0],band[0],band[1],band[1],fs/2], [0,0,1,1,0,0],fs=fs)
             self.zi_bandpass = np.zeros(n_taps_bandpass - 1)

@@ -9,7 +9,7 @@ from copy import deepcopy
 
 
 def grid_apply_method(method_class, kwargs_grid):
-    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="sim5"')
+    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
 
     kwargs_grid['dataset'] = eeg_df['dataset'].unique()
     keys, values = zip(*kwargs_grid.items())
@@ -48,7 +48,7 @@ kwargs_df.to_csv('results/rect_kwargs.csv', index=False)
 # cFIR
 kwargs_grid = {
     'delay': DELAY_RANGE,
-    'n_taps': np.arange(100, 2000 + 1, 100)
+    'n_taps': [300, 500, 1000]
 }
 res, kwargs_df = grid_apply_method(CFIRBandEnvelopeDetector, kwargs_grid)
 np.save('results/cfir.npy', res)

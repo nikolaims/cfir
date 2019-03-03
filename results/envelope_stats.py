@@ -18,10 +18,10 @@ def corr_delay(x, y, delay):
     corr = np.corrcoef(x, y)[0, 1]
     return corr
 
-eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="sim5"')
+eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
 
-res = np.load('results/rlscfir.npy')
-kwargs_df = pd.read_csv('results/rlscfir_kwargs.csv')
+res = np.load('results/cfir.npy')
+kwargs_df = pd.read_csv('results/cfir_kwargs.csv')
 
 
 stats_df = pd.DataFrame(columns=['dataset', 'delay', 'max_corr_train', 'method_corr_train', 'max_corr_test',
@@ -51,9 +51,9 @@ import pylab as plt
 import seaborn as sns
 cm = sns.color_palette('Blues', 10)
 for k in [5]:
-    plt.plot(stats_df.query('dataset == "sim{}"'.format(k))['delay'], stats_df.query('dataset == "sim{}"'.format(k))['max_corr_train'], label=k, color=cm[k])
-    plt.plot(stats_df.query('dataset == "sim{}"'.format(k))['delay'],
-             stats_df.query('dataset == "sim{}"'.format(k))['method_corr_train'], '--', label=k, color=cm[k])
+    plt.plot(stats_df.query('dataset == "alpha2-delay-subj-1_11-06_17-15-29"')['delay'], stats_df.query('dataset == "alpha2-delay-subj-1_11-06_17-15-29"')['max_corr_train'], label=k, color=cm[k])
+    plt.plot(stats_df.query('dataset == "alpha2-delay-subj-1_11-06_17-15-29"')['delay'],
+             stats_df.query('dataset == "alpha2-delay-subj-1_11-06_17-15-29"')['method_corr_train'], '--', label=k, color=cm[k])
     #plt.plot(stats_df.query('dataset == "{}"'.format('sim8'))['delay'], stats_df.query('dataset == "{}"'.format('sim8'))['max_delay'])
 plt.legend()
 #plt.plot(DELAY_RANGE, DELAY_RANGE, 'k')

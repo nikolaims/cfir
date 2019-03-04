@@ -118,7 +118,7 @@ class ARCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
 
 
 class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
-    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000, mu=0.9, max_chunk_size=10, **kwargs):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, reg_coeff=0, ada_n_taps=1000, mu=0.9, rls_reg_coeff=1e-6, max_chunk_size=10, **kwargs):
         super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, reg_coeff)
         self.rls = pa.filters.FilterRLS(n=len(self.b), mu=mu)
         self.rls.w = self.b[::-1]
@@ -128,13 +128,14 @@ class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
         self.ada_n_taps = ada_n_taps
         self.delay = delay
         self.max_chunk_size = max_chunk_size
+        self.rls_reg_coeff = rls_reg_coeff
 
     def apply(self, chunk: np.ndarray):
         if len(chunk) <= self.max_chunk_size:
             x = self.buffer.update_buffer(chunk)
             y = band_hilbert(x[-self.ada_n_taps:], self.fs, self.band)[-self.ada_n_taps//2-1]
             self.rls.adapt(y, x[:len(self.b)])
-            self.rls.w -= 0.0000001 * self.rls.w
+            self.rls.w -= self.rls_reg_coeff * self.rls.w
             self.b = self.rls.w[::-1]
             y = sg.lfilter(self.b, self.a, x)
             return y[-len(chunk):]
@@ -223,7 +224,7 @@ class FiltFiltRectSWFilter(SlidingWindowFilter):
 
 class FiltFiltARHilbertFilter:
     def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1, **kwargs):
-        n_taps_buffer = buffer_s*fs
+        n_taps_buffer = int(buffer_s*fs)
         self.buffer = SlidingWindowBuffer(n_taps_buffer)
         self.ba_bandpass = sg.butter(butter_order, [band[0]/fs*2, band[1]/fs*2], 'band')
         self.delay = delay

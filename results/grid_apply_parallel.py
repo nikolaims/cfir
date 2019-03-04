@@ -12,20 +12,23 @@ import multiprocessing
 
 kwargs_grid_dict = {}
 
-# cFIR
-kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
-    'delay': DELAY_RANGE,
-    'n_taps': [300]
-})
-
 # rls
 kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [300],#np.arange(200, 2000 + 1, 300),
-    'ada_n_taps': [300, 500],
-    'mu': [0.9],
-    'max_chunk_size': [100]
+    'n_taps': [300, 500, 1000],#np.arange(200, 2000 + 1, 300),
+    'ada_n_taps': [400, 900],
+    'mu': [0.9, 0.8],
+    'max_chunk_size': [50],
+    'rls_reg_coeff': [0.0000001]
 })
+
+
+# cFIR
+kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
+    'delay': DELAY_RANGE,
+    'n_taps': [300, 500, 1000]
+})
+
 
 
 # rect
@@ -38,7 +41,7 @@ kwargs_grid_dict['rect'] = (RectEnvDetector, {
 #wHilbert
 kwargs_grid_dict['whilbert'] = (WHilbertFilter, {
     'delay': np.arange(DELAY_RANGE[DELAY_RANGE>0].min(), DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]),
-    'n_taps': [300],
+    'n_taps': [300, 500, 1000],
     'max_chunk_size': [10]
 })
 
@@ -46,16 +49,16 @@ kwargs_grid_dict['whilbert'] = (WHilbertFilter, {
 #ffiltAR
 kwargs_grid_dict['ffiltar'] = (FiltFiltARHilbertFilter, {
     'delay': DELAY_RANGE,
-    'n_taps_edge': [30],#np.arange(10, 50, 10, dtype=int),
-    'ar_order': [50],
+    'n_taps_edge': [30, 40],#np.arange(10, 50, 10, dtype=int),
+    'ar_order': [25, 50],
     'max_chunk_size': [10],
-    'buffer_s': [1]
+    'buffer_s': [0.5, 1]
 })
 
 
 
 
-eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
+eeg_df = pd.read_pickle('data/rest_state_probes.pkl')#.query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
 
 
 for method_name in kwargs_grid_dict:

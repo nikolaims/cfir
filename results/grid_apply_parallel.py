@@ -26,7 +26,7 @@ kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
 # cFIR
 kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [300, 500, 1000]
+    'n_taps': [300, 500, 1000, 2000]
 })
 
 
@@ -40,8 +40,8 @@ kwargs_grid_dict['rect'] = (RectEnvDetector, {
 
 #wHilbert
 kwargs_grid_dict['whilbert'] = (WHilbertFilter, {
-    'delay': np.arange(DELAY_RANGE[DELAY_RANGE>0].min(), DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]),
-    'n_taps': [300, 500, 1000],
+    'delay': np.arange(DELAY_RANGE[DELAY_RANGE>=0].min(), DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]),
+    'n_taps': [250, 500, 1000],
     'max_chunk_size': [10]
 })
 
@@ -58,7 +58,7 @@ kwargs_grid_dict['ffiltar'] = (FiltFiltARHilbertFilter, {
 
 
 
-eeg_df = pd.read_pickle('data/rest_state_probes.pkl')#.query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
+eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')#.query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')
 
 
 for method_name in kwargs_grid_dict:

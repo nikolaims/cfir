@@ -31,7 +31,7 @@ steps = [eeg] + list((rect.apply(eeg)))
 slc = slice(0, int(FS*1))
 steps = [x[slc] for x in steps]
 
-fig, axes = plt.subplots(len(steps), sharex=True, figsize=(5, 8))
+fig, axes = plt.subplots(len(steps), sharex=True, figsize=(3, 5))
 plt.subplots_adjust(hspace=1)
 
 nor = lambda x: x/np.max(np.abs(x))
@@ -75,5 +75,6 @@ for ax in axes:
     ax.spines['bottom'].set_edgecolor('#6a747c')
     ax.tick_params(color='#6a747c')
 
-
+axes[-1].set_xlabel('Time, s')
+axes[0].set_title('$D = {}$ ms'.format(DELAY*2))
 fig.savefig('results/viz/rect.png', dpi=150)

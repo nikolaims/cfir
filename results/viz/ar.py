@@ -76,36 +76,40 @@ full_predicted[(t > t0 - len(rect.buffer.buffer) / FS) & (t <= t0 + params['n_ta
 nor = lambda x: x/np.max(np.abs(x))
 
 
-fig = plt.figure(figsize=(5, 8))
-ax0 = fig.add_subplot(5,1,1)
+fig = plt.figure(figsize=(3, 8))
+ax0 = fig.add_subplot(6,1,1)
 ax0.plot(t, eeg[slc], '#0099d8')
 
 ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], eeg[slc][(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
 
 
 
-ax = fig.add_subplot(5,1,2, sharex=ax0)
+ax = fig.add_subplot(6,1,2, sharex=ax0)
 
 ax.plot(t, filtered, '#0099d8')
 
 ax.plot(t, predicted, 'r--')
 #ax.plot(t0-DELAY/FS, filtered[t <= (t0-DELAY/FS)][-1], 'or')
 
-ax = fig.add_subplot(5,1,3, sharex=ax0)
+ax = fig.add_subplot(6,1,3, sharex=ax0)
 ax.plot(t, np.real(full_predicted), '#0099d8')
 ax.plot(t, np.imag(full_predicted), '#0099d8', linestyle='--')
 ax.plot(t0, np.real(full_predicted)[t <= (t0)][-1], 'or')
 
-ax = fig.add_subplot(5,1,4, sharex=ax0)
+ax = fig.add_subplot(6,1,4, sharex=ax0)
 step = np.concatenate(res[::3])[slc]
 ax.plot(t, np.real(step), '#0099d8')
 ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
 
-ax = fig.add_subplot(5,1,5, sharex=ax0)
-step = np.abs(step)
-ax.plot(t, nor(step), '#0099d8')
+ax = fig.add_subplot(6,1,5, sharex=ax0)
+ax.plot(t, nor(np.abs(step)), '#0099d8')
 ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
 ax.plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
+
+ax = fig.add_subplot(6,1,6, sharex=ax0)
+ax.plot(t, np.angle(step), '#0099d8')
+ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
+ax.plot(t, np.angle(np.roll(an_signal, DELAY)[slc]), 'k--', alpha=0.5)
 
 
 for j, ax in enumerate(fig.axes):

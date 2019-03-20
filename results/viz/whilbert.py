@@ -6,7 +6,7 @@ from settings import FS
 import scipy.signal  as sg
 from pycfir.filters import RectEnvDetector, WHilbertFilter, band_hilbert, rt_emulate
 
-DELAY = 100
+DELAY = 50
 eeg_df = pd.read_pickle('data/rest_state_probes.pkl')
 
 eeg = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')['eeg'].values[:10000]
@@ -51,13 +51,13 @@ steps = [x[slc] if j!=1 else x for j, x in enumerate(steps)]
 nor = lambda x: x/np.max(np.abs(x))
 
 
-fig = plt.figure(figsize=(5, 8))
-ax0 = fig.add_subplot(5,1,1)
+fig = plt.figure(figsize=(3, 8))
+ax0 = fig.add_subplot(6,1,1)
 ax0.plot(t, eeg[slc], '#0099d8')
 ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], eeg[slc][(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
 
 
-ax = fig.add_subplot(5,1,2)
+ax = fig.add_subplot(6,1,2)
 Xf = np.fft.fftshift(np.abs(res[2::4][slc][t<=t0][-1]))
 w = np.fft.fftshift(np.fft.fftfreq(len(Xf), d=1. / FS))
 Xf1 = Xf.copy()
@@ -72,7 +72,7 @@ ax.set_xlabel('             Freq., Hz')
 
 ax.spines['bottom'].set_edgecolor('w')
 
-ax = fig.add_subplot(5,1,3, sharex=ax0)
+ax = fig.add_subplot(6,1,3, sharex=ax0)
 step=hilb
 ax.plot(t, np.real(step), '#0099d8')
 ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
@@ -80,16 +80,21 @@ ax.plot(t0-DELAY/FS, step[t <= (t0-DELAY/FS)][-1], 'or')
 ax.plot(t0, step[t <= (t0 - DELAY / FS)][-1], 'or', fillstyle='none')
 
 
-ax = fig.add_subplot(5,1,4, sharex=ax0)
+ax = fig.add_subplot(6,1,4, sharex=ax0)
 step = np.concatenate(res[::4])[slc]
 ax.plot(t, np.real(step), '#0099d8')
 ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
 
-ax = fig.add_subplot(5,1,5, sharex=ax0)
-step = np.abs(step)
-ax.plot(t, nor(step), '#0099d8')
+ax = fig.add_subplot(6,1,5, sharex=ax0)
+ax.plot(t, nor(np.abs(step)), '#0099d8')
 ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
 ax.plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
+
+ax = fig.add_subplot(6,1,6, sharex=ax0)
+step = np.angle(step)
+ax.plot(t, step, '#0099d8')
+ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
+ax.plot(t, np.angle(np.roll(an_signal, DELAY)[slc]), 'k--', alpha=0.5)
 
 
 for j, ax in enumerate(fig.axes):

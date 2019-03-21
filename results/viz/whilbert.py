@@ -48,14 +48,15 @@ hilb[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)] = res[1::4][slc][t<=t0][-1]
 steps = [eeg, hilb, np.concatenate(res[::4]), np.abs(np.concatenate(res[::4]))]
 
 steps = [x[slc] if j!=1 else x for j, x in enumerate(steps)]
-nor = lambda x: x/np.max(np.abs(x))
+nor = lambda x: x/np.nanmax(np.abs(x))
 
 
 fig = plt.figure(figsize=(3, 8))
 ax0 = fig.add_subplot(6,1,1)
-ax0.plot(t, eeg[slc], '#0099d8')
-ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], eeg[slc][(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
-
+ax0.plot(t, nor(eeg[slc]), '#0099d8')
+ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], nor(eeg[slc])[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
+ax0.text(t[0], 0.8, '$x$', color='#0099d8')
+ax0.text(t[250], -2, r'$\downarrow W$', color='k')
 
 ax = fig.add_subplot(6,1,2)
 Xf = np.fft.fftshift(np.abs(res[2::4][slc][t<=t0][-1]))
@@ -68,33 +69,41 @@ ax.plot([-FS/2, FS/2], [0,0], color='r')
 ax.set_xlim(-590, 490)
 ax.set_xticks([-250, 0, 10, 250])
 ax.set_xticklabels(['$-0.5f_s$', '0  ', '   $f_0$', '$0.5f_s$'])
-ax.set_xlabel('             Freq., Hz')
+
 
 ax.spines['bottom'].set_edgecolor('w')
 
 ax = fig.add_subplot(6,1,3, sharex=ax0)
-step=hilb
+step=nor(hilb)
 ax.plot(t, np.real(step), '#0099d8')
 ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
 ax.plot(t0-DELAY/FS, step[t <= (t0-DELAY/FS)][-1], 'or')
 ax.plot(t0, step[t <= (t0 - DELAY / FS)][-1], 'or', fillstyle='none')
-
+ax.text(t[250], 1.6, r'$\downarrow W^H$', color='k')
+ax.text(t[350], -1.3, '$y_{hilb}$', color='r')
 
 ax = fig.add_subplot(6,1,4, sharex=ax0)
 step = np.concatenate(res[::4])[slc]
-ax.plot(t, np.real(step), '#0099d8')
-ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
+ax.plot(t, np.real(nor(step)), '#0099d8')
+ax.plot(t, np.imag(nor(step)), '#0099d8', linestyle='--')
+ax.text(t[0], 0.8, '$y_{hilb}$', color='#0099d8')
 
 ax = fig.add_subplot(6,1,5, sharex=ax0)
 ax.plot(t, nor(np.abs(step)), '#0099d8')
 ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
 ax.plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
+ax.text(t[220], 0.5, '$a_{hilb}$', color='#0099d8')
+ax.text(t[290], 1.1, '$a[n-D]$', color='#777777')
+ax.text(t[150], 0.9, '$a$', color='#444444')
+
 
 ax = fig.add_subplot(6,1,6, sharex=ax0)
 step = np.angle(step)
 ax.plot(t, step, '#0099d8')
 ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
 ax.plot(t, np.angle(np.roll(an_signal, DELAY)[slc]), 'k--', alpha=0.5)
+ax.text(t[0], np.pi+0.5, '$\phi_{hilb}$', color='#0099d8')
+ax.text(t[-1], np.pi+0.5, '$\phi$', color='#444444')
 
 
 for j, ax in enumerate(fig.axes):
@@ -111,6 +120,17 @@ for j, ax in enumerate(fig.axes):
         plt.setp(ax.get_xticklabels(), visible=False)
     if j == 4:
         ax.set_xlabel('Time, s')
-fig.subplots_adjust(hspace=1)
+        ax.xaxis.set_label_coords(0.9, -0.6)
 
-fig.savefig('results/viz/whilb.png', dpi=150)
+
+ax.get_yaxis().set_visible(True)
+ax.set_yticks([-np.pi, 0, np.pi])
+ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
+ax.spines['left'].set_visible(True)
+ax.spines['left'].set_edgecolor('#6a747c')
+
+fig.axes[0].set_title('$hilb$ \n $D = {}$ ms'.format(DELAY*2))
+
+fig.subplots_adjust(hspace=1.2)
+
+fig.savefig('results/viz/whilb.png', dpi=200)

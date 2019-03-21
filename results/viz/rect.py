@@ -41,28 +41,34 @@ t = np.arange(slc.stop-slc.start)/FS
 
 steps[-1] = nor(steps[-1])
 for j_step, step in enumerate(steps):
-    axes[j_step].plot(t, step, '#0099d8')#, alpha=0.5)
+    axes[j_step].plot(t, step/np.max(step), '#0099d8')#, alpha=0.5)
     if j_step == 0:
         mask = (t > t0 - len(rect.b_bandpass) / FS) & (t<=t0)
 
-        axes[j_step].plot(t[mask], step[mask], 'k', linewidth=2)
-        axes[j_step].plot(t[mask], rect.b_bandpass / FS, 'r', linewidth=2, alpha=0.8)
+        axes[j_step].plot(t[mask], step[mask]/np.max(step), 'k', linewidth=2)
+        axes[j_step].plot(t[mask], rect.b_bandpass / FS/np.max(step), 'r', linewidth=2, alpha=0.8)
         #axes[j_step].axvspan(1 - len(rect.b_bandpass) / FS, 1, alpha=0.1, color='red')
-
+        axes[j_step].text(t[0], 0.8, '$x$', color='#0099d8')
+        axes[j_step].text(t[310], -1.5, '$h_{bp}$', color='r')
     if j_step == 1:
         indexes = np.arange(len(t))[(step>0) | (t>t0)]
         s = step.copy()
         s[indexes] = np.nan
-        axes[j_step].plot(t, s, 'k', linewidth=2)
+        axes[j_step].plot(t, s/np.max(step), 'k', linewidth=2)
+        axes[j_step].text(t[250], -2, r'$\downarrow |\cdot|$', color='k')
     if j_step == 2:
         mask = (t > t0 - len(rect.b_smooth) / FS) & (t <= t0)
-        axes[j_step].plot(t[mask], step[mask], 'k', linewidth=2)
+        axes[j_step].plot(t[mask], step[mask]/np.max(step), 'k', linewidth=2)
 
-        axes[j_step].plot(t[mask], rect.b_smooth / FS/3, 'r', linewidth=2, alpha=0.8)
+        axes[j_step].plot(t[mask], rect.b_smooth / FS/3/np.max(step), 'r', linewidth=2, alpha=0.8)
         #axes[j_step].axvspan(1 - len(rect.b_smooth) / FS, 1, alpha=0.1, color='red')
+        axes[j_step].text(t[350], -0.45, '$h_{lp}$', color='r')
     if  j_step==3:
         axes[j_step].plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
         axes[j_step].plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
+        axes[j_step].text(t[260], 0.4, '$a_{rect}$', color='#0099d8')
+        axes[j_step].text(t[150], 0.9, '$a$', color='#444444')
+        axes[j_step].text(t[300], 1.1, '$a[n-D]$', color='#777777')
 
 
 for ax in axes:
@@ -75,6 +81,10 @@ for ax in axes:
     ax.spines['bottom'].set_edgecolor('#6a747c')
     ax.tick_params(color='#6a747c')
 
+
+
 axes[-1].set_xlabel('Time, s')
-axes[0].set_title('$D = {}$ ms'.format(DELAY*2))
-fig.savefig('results/viz/rect.png', dpi=150)
+axes[-1].xaxis.set_label_coords(0.9, -0.4)
+
+axes[0].set_title('$rect$ \n $D = {}$ ms'.format(DELAY*2))
+fig.savefig('results/viz/rect.png', dpi=200)

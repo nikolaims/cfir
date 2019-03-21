@@ -78,39 +78,50 @@ nor = lambda x: x/np.max(np.abs(x))
 
 fig = plt.figure(figsize=(3, 8))
 ax0 = fig.add_subplot(6,1,1)
-ax0.plot(t, eeg[slc], '#0099d8')
-
-ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], eeg[slc][(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
+ax0.plot(t, nor(eeg[slc]), '#0099d8')
+ax0.text(t[0], 0.8, '$x$', color='#0099d8')
+ax0.plot(t[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], nor(eeg[slc])[(t>t0-len(rect.buffer.buffer)/FS) & (t<=t0)], 'k', linewidth=2)
 
 
 
 ax = fig.add_subplot(6,1,2, sharex=ax0)
 
-ax.plot(t, filtered, '#0099d8')
+ax.plot(t, filtered/np.nanmax(filtered), '#0099d8')
 
-ax.plot(t, predicted, 'r--')
+ax.plot(t, predicted/np.nanmax(filtered), 'r-')
+ax.text(t[140], 0.8, r'$\tilde x$', color='#0099d8')
+ax.text(t[400], 0.8, r'$\mathcal{P}_{AR(p)}$', color='r')
+ax.text(t[400], 0.4, r'$\longrightarrow$', color='r')
+ax.text(t[250], -2, r'$\downarrow h$', color='k')
 #ax.plot(t0-DELAY/FS, filtered[t <= (t0-DELAY/FS)][-1], 'or')
 
 ax = fig.add_subplot(6,1,3, sharex=ax0)
-ax.plot(t, np.real(full_predicted), '#0099d8')
-ax.plot(t, np.imag(full_predicted), '#0099d8', linestyle='--')
-ax.plot(t0, np.real(full_predicted)[t <= (t0)][-1], 'or')
+ax.plot(t, np.real(full_predicted)/np.nanmax(np.real(full_predicted)), '#0099d8')
+ax.plot(t, np.imag(full_predicted)/np.nanmax(np.real(full_predicted)), '#0099d8', linestyle='--')
+ax.plot(t0, np.real(full_predicted)[t <= (t0)][-1]/np.nanmax(np.real(full_predicted)), 'or')
+ax.text(t[400], 0.8, r'$y_{arhilb}$', color='r')
+
 
 ax = fig.add_subplot(6,1,4, sharex=ax0)
 step = np.concatenate(res[::3])[slc]
-ax.plot(t, np.real(step), '#0099d8')
-ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
+ax.plot(t, np.real(nor(step)), '#0099d8')
+ax.plot(t, np.imag(nor(step)), '#0099d8', linestyle='--')
+ax.text(t[0], 0.8, '$y_{arhilb}$', color='#0099d8')
 
 ax = fig.add_subplot(6,1,5, sharex=ax0)
 ax.plot(t, nor(np.abs(step)), '#0099d8')
 ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
 ax.plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
+ax.text(t[210], 0.4, '$a_{arhilb}$', color='#0099d8')
+ax.text(t[150], 0.9, '$a$', color='#444444')
+
 
 ax = fig.add_subplot(6,1,6, sharex=ax0)
 ax.plot(t, np.angle(step), '#0099d8')
 ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
 ax.plot(t, np.angle(np.roll(an_signal, DELAY)[slc]), 'k--', alpha=0.5)
-
+ax.text(t[0], np.pi+0.5, '$\phi_{arhilb}$', color='#0099d8')
+ax.text(t[-1], np.pi+0.5, '$\phi$', color='#444444')
 
 for j, ax in enumerate(fig.axes):
     ax.get_yaxis().set_visible(False)
@@ -125,6 +136,17 @@ for j, ax in enumerate(fig.axes):
         plt.setp(ax.get_xticklabels(), visible=False)
     if j == 4:
         ax.set_xlabel('Time, s')
+        ax.xaxis.set_label_coords(0.9, -0.5)
+
+
+ax.get_yaxis().set_visible(True)
+ax.set_yticks([-np.pi, 0, np.pi])
+ax.set_yticklabels(['$-\pi$', '0', '$\pi$'])
+ax.spines['left'].set_visible(True)
+ax.spines['left'].set_edgecolor('#6a747c')
+
+fig.axes[0].set_title('$arhilb$ \n $D = {}$ ms'.format(DELAY*2))
+
 fig.subplots_adjust(hspace=1)
 
-fig.savefig('results/viz/ffiltar.png', dpi=150)
+fig.savefig('results/viz/ffiltar.png', dpi=200)

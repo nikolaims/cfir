@@ -6,14 +6,17 @@ from settings import FS
 import scipy.signal  as sg
 from pycfir.filters import RectEnvDetector, WHilbertFilter, band_hilbert, rt_emulate
 
-DELAY = 100
-eeg_df = pd.read_pickle('data/rest_state_probes.pkl')
+DELAY = 80
+dataset = "alpha2-delay-subj-21_12-06_12-15-09"
+eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset)).iloc[20000:30000]
 
-eeg = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')['eeg'].values[6600:8000]
-an_signal = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')['an_signal'].values[6600:8000]
-band = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')[['band_left_train', 'band_right_train']].values[0]
-#band = (8, 12)
+eeg = eeg_df['eeg'].values
+an_signal = eeg_df['an_signal'].values
+band = eeg_df[['band_left_train', 'band_right_train']].values[0]
+nor = lambda x: x/np.max(np.abs(x))
 
+t0 = 1
+slc = slice(6800, 7500)
 
 
 class RectEnvDetectorViz(RectEnvDetector):
@@ -23,20 +26,16 @@ class RectEnvDetectorViz(RectEnvDetector):
         y3, self.zi_smooth  = sg.lfilter(self.b_smooth, [1.], y2, zi=self.zi_smooth)
         return y1, y2, y3
 
-stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="alpha2-delay-subj-12_11-21_20-23-29" & delay=={} & metric=="corr"'.format(DELAY))
+stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}" & delay=={} '.format(dataset, DELAY))
 
 rect = RectEnvDetectorViz(band, FS, stats_df.query('method=="rect"')['params'].values[0]['n_taps_bandpass'], DELAY)
 
 steps = [eeg] + list((rect.apply(eeg)))
-slc = slice(0, int(FS*1))
 steps = [x[slc] for x in steps]
 
 fig, axes = plt.subplots(len(steps), sharex=True, figsize=(3, 5))
 plt.subplots_adjust(hspace=1)
 
-nor = lambda x: x/np.max(np.abs(x))
-
-t0 = 0.8
 t = np.arange(slc.stop-slc.start)/FS
 
 steps[-1] = nor(steps[-1])
@@ -45,11 +44,11 @@ for j_step, step in enumerate(steps):
     if j_step == 0:
         mask = (t > t0 - len(rect.b_bandpass) / FS) & (t<=t0)
 
-        axes[j_step].plot(t[mask], step[mask]/np.max(step), 'k', linewidth=2)
+        #axes[j_step].plot(t[mask], step[mask]/np.max(step), 'k', linewidth=2)
         axes[j_step].plot(t[mask], rect.b_bandpass / FS/np.max(step), 'r', linewidth=2, alpha=0.8)
         #axes[j_step].axvspan(1 - len(rect.b_bandpass) / FS, 1, alpha=0.1, color='red')
         axes[j_step].text(t[0], 0.8, '$x$', color='#0099d8')
-        axes[j_step].text(t[310], -1.5, '$h_{bp}$', color='r')
+        axes[j_step].text(t[400], -1.8, '$h_{bp}$', color='r')
     if j_step == 1:
         indexes = np.arange(len(t))[(step>0) | (t>t0)]
         s = step.copy()
@@ -62,12 +61,12 @@ for j_step, step in enumerate(steps):
 
         axes[j_step].plot(t[mask], rect.b_smooth / FS/3/np.max(step), 'r', linewidth=2, alpha=0.8)
         #axes[j_step].axvspan(1 - len(rect.b_smooth) / FS, 1, alpha=0.1, color='red')
-        axes[j_step].text(t[350], -0.45, '$h_{lp}$', color='r')
+        axes[j_step].text(t[510], 1, '$h_{lp}$', color='r')
     if  j_step==3:
-        axes[j_step].plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
+        #axes[j_step].plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
         axes[j_step].plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
-        axes[j_step].text(t[260], 0.4, '$a_{rect}$', color='#0099d8')
-        axes[j_step].text(t[150], 0.9, '$a$', color='#444444')
+        axes[j_step].text(t[350], 0.4, '$a_{rect}$', color='#0099d8')
+        #axes[j_step].text(t[150], 0.9, '$a$', color='#444444')
         axes[j_step].text(t[300], 1.1, '$a[n-D]$', color='#777777')
 
 
@@ -84,7 +83,7 @@ for ax in axes:
 
 
 axes[-1].set_xlabel('Time, s')
-axes[-1].xaxis.set_label_coords(0.9, -0.4)
+axes[-1].xaxis.set_label_coords(0.9, -0.15)
 
 axes[0].set_title('$rect$ \n $D = {}$ ms'.format(DELAY*2))
 fig.savefig('results/viz/rect.png', dpi=200)

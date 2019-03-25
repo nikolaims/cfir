@@ -6,14 +6,22 @@ from settings import FS
 import scipy.signal  as sg
 from pycfir.filters import RectEnvDetector, WHilbertFilter, band_hilbert, rt_emulate
 
-DELAY = 50
-eeg_df = pd.read_pickle('data/rest_state_probes.pkl')
+DELAY = 40
+dataset = "alpha2-delay-subj-21_12-06_12-15-09"
+eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset)).iloc[20000:30000]
 
-eeg = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')['eeg'].values[:10000]
-an_signal = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')['an_signal'].values[:10000]
-band = eeg_df.query('dataset=="alpha2-delay-subj-12_11-21_20-23-29"')[['band_left_train', 'band_right_train']].values[0]
-#band = (8, 12)
+eeg = eeg_df['eeg'].values
+an_signal = eeg_df['an_signal'].values
+band = eeg_df[['band_left_train', 'band_right_train']].values[0]
+nor = lambda x: x/np.max(np.abs(x))
 
+t0 = 1
+slc = slice(6800, 7500)
+
+
+stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}" & delay=={} '.format(dataset, DELAY))
+
+params = stats_df.query('method=="whilbert" & metric=="corr"')['params'].values[0]
 
 
 class WHilbertFilterViz(WHilbertFilter):
@@ -30,15 +38,12 @@ class WHilbertFilterViz(WHilbertFilter):
         else:
             return rt_emulate(self, chunk, self.max_chunk_size)
 
-stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="alpha2-delay-subj-12_11-21_20-23-29" & delay=={} & metric=="corr"'.format(DELAY))
 
 rect = WHilbertFilterViz(stats_df.query('method=="whilbert"')['params'].values[0]['n_taps'], FS, band, DELAY, max_chunk_size=1)
 
 res = rect.apply(eeg)
 
 
-t0 = 0.8
-slc = slice(6600, 6600+int(FS*1))
 t = np.arange(slc.stop-slc.start)/FS
 
 
@@ -80,7 +85,7 @@ ax.plot(t, np.imag(step), '#0099d8', linestyle='--')
 ax.plot(t0-DELAY/FS, step[t <= (t0-DELAY/FS)][-1], 'or')
 ax.plot(t0, step[t <= (t0 - DELAY / FS)][-1], 'or', fillstyle='none')
 ax.text(t[250], 1.6, r'$\downarrow W^H$', color='k')
-ax.text(t[350], -1.3, '$y_{hilb}$', color='r')
+ax.text(t[500], 1, '$y_{hilb}$', color='r')
 
 ax = fig.add_subplot(6,1,4, sharex=ax0)
 step = np.concatenate(res[::4])[slc]
@@ -90,20 +95,20 @@ ax.text(t[0], 0.8, '$y_{hilb}$', color='#0099d8')
 
 ax = fig.add_subplot(6,1,5, sharex=ax0)
 ax.plot(t, nor(np.abs(step)), '#0099d8')
-ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
+#ax.plot(t, nor(np.abs(an_signal[slc])), 'k', alpha=0.5)
 ax.plot(t, nor(np.abs(np.roll(an_signal, DELAY)[slc])), 'k--', alpha=0.5)
-ax.text(t[220], 0.5, '$a_{hilb}$', color='#0099d8')
+ax.text(t[150], 0.5, '$a_{hilb}$', color='#0099d8')
 ax.text(t[290], 1.1, '$a[n-D]$', color='#777777')
-ax.text(t[150], 0.9, '$a$', color='#444444')
+#ax.text(t[150], 0.9, '$a$', color='#444444')
 
 
 ax = fig.add_subplot(6,1,6, sharex=ax0)
 step = np.angle(step)
 ax.plot(t, step, '#0099d8')
-ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
+#ax.plot(t, np.angle(an_signal[slc]), 'k', alpha=0.5)
 ax.plot(t, np.angle(np.roll(an_signal, DELAY)[slc]), 'k--', alpha=0.5)
 ax.text(t[0], np.pi+0.5, '$\phi_{hilb}$', color='#0099d8')
-ax.text(t[-1], np.pi+0.5, '$\phi$', color='#444444')
+ax.text(t[50], -np.pi-2, '$\phi[n-D]$', color='#444444')
 
 
 for j, ax in enumerate(fig.axes):
@@ -120,7 +125,7 @@ for j, ax in enumerate(fig.axes):
         plt.setp(ax.get_xticklabels(), visible=False)
     if j == 4:
         ax.set_xlabel('Time, s')
-        ax.xaxis.set_label_coords(0.9, -0.6)
+        ax.xaxis.set_label_coords(0.9, -0.15)
 
 
 ax.get_yaxis().set_visible(True)

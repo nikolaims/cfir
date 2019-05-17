@@ -36,7 +36,7 @@ def band_hilbert(x, fs, band, N=None, axis=-1):
 
 
 class RectEnvDetector:
-    def __init__(self, band, fs, n_taps_bandpass, delay, smooth_cutoff=None, **kwargs):
+    def __init__(self, band, fs, delay, n_taps_bandpass, smooth_cutoff=None, **kwargs):
         """
         Envelope  detector  based  on  rectification  of  the  band-filtered  signal
         :param band: band of interest
@@ -72,17 +72,63 @@ class RectEnvDetector:
         return y
 
 
+class SlidingWindowBuffer:
+    def __init__(self, n_taps, dtype='float'):
+        """
+        Sliding window buffer updated by chunks
+        :param n_taps: length of the buffer
+        :param dtype: buffer dtype
+        """
+        self.buffer = np.zeros(n_taps, dtype)
+        self.n_taps = n_taps
+
+    def update_buffer(self, chunk):
+        '''
+        Update buffer from chunk. If chunk length >= n_taps write last n_taps samples from chunk to buffer.
+        :param chunk:
+        :return:
+        '''
+        if len(chunk) < len(self.buffer):
+            self.buffer[:-len(chunk)] = self.buffer[len(chunk):]
+            self.buffer[-len(chunk):] = chunk
+        else:
+            self.buffer = chunk[-len(self.buffer):]
+        return self.buffer
+
+
+class WHilbertFilter:
+    def __init__(self, band, fs, delay, n_taps, max_chunk_size=1, **kwargs):
+        self.delay = delay
+        if self.delay < 0:
+            warnings.warn('WHilbertFilter insufficient delay: delay < 0. Filter will return nans')
+        self.fs = fs
+        self.band = band
+        self.buffer = SlidingWindowBuffer(n_taps)
+        self.max_chunk_size = max_chunk_size
+
+    def apply(self, chunk):
+        if self.delay < 0: return chunk*np.nan
+        if chunk.shape[0] < self.buffer.n_taps:
+            x = self.buffer.update_buffer(chunk)
+            y = band_hilbert(x, self.fs, self.band)
+            return y[-self.delay-1] * np.ones(chunk.shape[0])
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
+
+
 if __name__ == '__main__':
     x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 200
+    delay = 50
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
-    rect_filter_y = RectEnvDetector(band, fs, 400, delay).apply(x)
+    rect_filter_y = RectEnvDetector(band, fs, delay, 5).apply(x)
+    whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500).apply(x))
 
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)
+    plt.plot(whilbert_filter_y)
 

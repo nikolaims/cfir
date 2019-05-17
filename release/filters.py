@@ -72,71 +72,74 @@ class RectEnvDetector:
         return y
 
 
-class SlidingWindowBuffer:
-    def __init__(self, n_taps, dtype='float'):
-        """
-        Sliding window buffer updated by chunks
-        :param n_taps: length of the buffer
-        :param dtype: buffer dtype
-        """
-        self.buffer = np.zeros(n_taps, dtype)
-        self.n_taps = n_taps
-
-    def update_buffer(self, chunk):
-        '''
-        Update buffer from chunk. If chunk length >= n_taps write last n_taps samples from chunk to buffer.
-        :param chunk:
-        :return:
-        '''
-        if len(chunk) < len(self.buffer):
-            self.buffer[:-len(chunk)] = self.buffer[len(chunk):]
-            self.buffer[-len(chunk):] = chunk
-        else:
-            self.buffer = chunk[-len(self.buffer):]
-        return self.buffer
-
 
 class WHilbertFilter:
-    def __init__(self, band, fs, delay, n_taps, max_chunk_size=1, **kwargs):
+    def __init__(self, band, fs, delay, n_taps, **kwargs):
         """
         Window bandpass Hilbert transform
         :param band: band of interest
         :param fs: sampling frequency
         :param delay: desired delay. If delay < 0 return nans
         :param n_taps: length of buffer window
-        :param max_chunk_size: chunk length to realtime emulation
         """
+        self.fs = fs
+        self.band = band
         self.delay = delay
         if self.delay < 0:
             warnings.warn('WHilbertFilter insufficient delay: delay < 0. Filter will return nans')
-        self.fs = fs
-        self.band = band
-        self.buffer = SlidingWindowBuffer(n_taps)
-        self.max_chunk_size = max_chunk_size
-
-    def apply(self, chunk):
-        if self.delay < 0: return chunk*np.nan
-        if chunk.shape[0] < self.buffer.n_taps:
-            x = self.buffer.update_buffer(chunk)
-            y = band_hilbert(x, self.fs, self.band)
-            return y[-self.delay-1] * np.ones(chunk.shape[0])
+            self.b = np.ones(n_taps) * np.nan
         else:
-            return rt_emulate(self, chunk, self.max_chunk_size)
+            w = np.arange(n_taps)
+            F = np.array([np.exp(-2j * np.pi / n_taps * k * np.arange(n_taps)) for k in np.arange(n_taps)])
+            F[(w/n_taps*fs < band[0]) | (w/n_taps*fs > band[1])] = 0
+            f = np.exp(2j * np.pi / n_taps * (n_taps-delay) * np.arange(n_taps))
+            self.b = f.dot(F)[::-1] * 2 / n_taps
+        self.a = np.array([1.])
+        self.zi = np.zeros(len(self.b) - 1)
 
+    def apply(self, chunk: np.ndarray):
+        y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
+        return y
+
+
+class CFIRBandEnvelopeDetector:
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, **kwargs):
+        """
+        Complex-valued FIR envelope detector based on analytic signal reconstruction
+        :param band: freq. range to apply band-pass filtering
+        :param fs: sampling frequency
+        :param smoother: smoother class instance to smooth output signal
+        :param delay_ms: delay of ideal filter in ms
+        :param n_taps: length of FIR
+        :param n_fft: length of freq. grid to estimate ideal freq. response
+        """
+        w = np.arange(n_fft)
+        H = 2 * np.exp(-2j * np.pi * w / n_fft * delay)
+        H[(w / n_fft * fs < band[0]) | (w / n_fft * fs > band[1])] = 0
+        F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
+        self.b = F.T.conj().dot(H)/n_fft
+        self.a = np.array([1.])
+        self.zi = np.zeros(len(self.b)-1)
+
+    def apply(self, chunk: np.ndarray):
+        y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
+        return y
 
 if __name__ == '__main__':
     x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 50
+    delay = 200
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
-    rect_filter_y = RectEnvDetector(band, fs, delay, 50).apply(x)
+    rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500).apply(x))
+    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 500).apply(x))
 
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)
     plt.plot(whilbert_filter_y)
+    plt.plot(cfir_filter_y)
 

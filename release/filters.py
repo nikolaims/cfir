@@ -98,6 +98,14 @@ class SlidingWindowBuffer:
 
 class WHilbertFilter:
     def __init__(self, band, fs, delay, n_taps, max_chunk_size=1, **kwargs):
+        """
+        Window bandpass Hilbert transform
+        :param band: band of interest
+        :param fs: sampling frequency
+        :param delay: desired delay. If delay < 0 return nans
+        :param n_taps: length of buffer window
+        :param max_chunk_size: chunk length to realtime emulation
+        """
         self.delay = delay
         if self.delay < 0:
             warnings.warn('WHilbertFilter insufficient delay: delay < 0. Filter will return nans')
@@ -124,7 +132,7 @@ if __name__ == '__main__':
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
-    rect_filter_y = RectEnvDetector(band, fs, delay, 5).apply(x)
+    rect_filter_y = RectEnvDetector(band, fs, delay, 50).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500).apply(x))
 
     import pylab as plt

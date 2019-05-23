@@ -74,7 +74,7 @@ class RectEnvDetector:
 
 
 class WHilbertFilter:
-    def __init__(self, band, fs, delay, n_taps, **kwargs):
+    def __init__(self, band, fs, delay, n_taps, n_fft, **kwargs):
         """
         Window bandpass Hilbert transform
         :param band: band of interest
@@ -89,11 +89,11 @@ class WHilbertFilter:
             warnings.warn('WHilbertFilter insufficient delay: delay < 0. Filter will return nans')
             self.b = np.ones(n_taps) * np.nan
         else:
-            w = np.arange(n_taps)
-            F = np.array([np.exp(-2j * np.pi / n_taps * k * np.arange(n_taps)) for k in np.arange(n_taps)])
-            F[(w/n_taps*fs < band[0]) | (w/n_taps*fs > band[1])] = 0
-            f = np.exp(2j * np.pi / n_taps * (n_taps-delay) * np.arange(n_taps))
-            self.b = f.dot(F)[::-1] * 2 / n_taps
+            w = np.arange(n_fft)
+            F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
+            F[(w/n_fft*fs < band[0]) | (w/n_fft*fs > band[1])] = 0
+            f = np.exp(2j * np.pi / n_fft * (n_taps-delay) * np.arange(n_fft))
+            self.b = f.dot(F)[::-1] * 2 / n_fft
         self.a = np.array([1.])
         self.zi = np.zeros(len(self.b) - 1)
 
@@ -134,8 +134,8 @@ if __name__ == '__main__':
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
     rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
-    whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500).apply(x))
-    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 500).apply(x))
+    whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
+    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000).apply(x))
 
     import pylab as plt
     plt.plot(y)

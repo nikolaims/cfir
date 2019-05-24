@@ -112,6 +112,7 @@ class CFIRBandEnvelopeDetector:
         :param delay_ms: delay of ideal filter in ms
         :param n_taps: length of FIR
         :param n_fft: length of freq. grid to estimate ideal freq. response
+        :weights: least squares weights
         """
         w = np.arange(n_fft)
         H = 2 * np.exp(-2j * np.pi * w / n_fft * delay)

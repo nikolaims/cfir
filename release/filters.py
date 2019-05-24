@@ -133,14 +133,14 @@ class CFIRBandEnvelopeDetector:
 if __name__ == '__main__':
     import pandas as pd
     dataset = "alpha2-delay-subj-21_12-06_12-15-09"
-    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset)).iloc[20000:30000]
+    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset))
 
-    x = eeg_df['eeg'].values
+    x = eeg_df['eeg'].iloc[20000:30000].values
     #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 200
-    weights = np.abs(sg.stft(x, fs, nperseg=2000, nfft=2000, return_onesided=False))[2].mean(1)
+    delay = 10
+    weights = np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2].mean(1)
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 

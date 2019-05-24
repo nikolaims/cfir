@@ -103,7 +103,7 @@ class WHilbertFilter:
 
 
 class CFIRBandEnvelopeDetector:
-    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, **kwargs):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, **kwargs):
         """
         Complex-valued FIR envelope detector based on analytic signal reconstruction
         :param band: freq. range to apply band-pass filtering
@@ -117,7 +117,11 @@ class CFIRBandEnvelopeDetector:
         H = 2 * np.exp(-2j * np.pi * w / n_fft * delay)
         H[(w / n_fft * fs < band[0]) | (w / n_fft * fs > band[1])] = 0
         F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
-        self.b = F.T.conj().dot(H)/n_fft
+        if weights is None:
+            self.b = F.T.conj().dot(H)/n_fft
+        else:
+            W = np.diag(weights)
+            self.b = np.linalg.solve(F.T.dot(W.dot(F.conj())), (F.T.conj()).dot(W.dot(H)))
         self.a = np.array([1.])
         self.zi = np.zeros(len(self.b)-1)
 
@@ -126,17 +130,24 @@ class CFIRBandEnvelopeDetector:
         return y
 
 if __name__ == '__main__':
-    x = np.random.normal(size=5000)
+    import pandas as pd
+    dataset = "alpha2-delay-subj-21_12-06_12-15-09"
+    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset)).iloc[20000:30000]
+
+    x = eeg_df['eeg'].values
+    #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
     delay = 200
+    weights = np.abs(sg.stft(x, fs, nperseg=2000, nfft=2000, return_onesided=False))[2].mean(1)
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
     rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
-    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000).apply(x))
+    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
 
+    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)

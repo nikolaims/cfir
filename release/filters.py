@@ -2,6 +2,8 @@ import numpy as np
 import scipy.signal as sg
 import warnings
 
+from scipy.linalg import toeplitz
+from statsmodels.regression.linear_model import yule_walker
 
 def rt_emulate(wfilter, x, chunk_size=1):
     """
@@ -130,6 +132,80 @@ class CFIRBandEnvelopeDetector:
         y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
         return y
 
+
+class SlidingWindowBuffer:
+    def __init__(self, n_taps, dtype='float'):
+        self.buffer = np.zeros(n_taps, dtype)
+        self.n_taps = n_taps
+
+    def update_buffer(self, chunk):
+        if len(chunk) < len(self.buffer):
+            self.buffer[:-len(chunk)] = self.buffer[len(chunk):]
+            self.buffer[-len(chunk):] = chunk
+        else:
+            self.buffer = chunk[-len(self.buffer):]
+        return self.buffer
+
+
+class YW(object):
+    """A class to fit AR model using Yule-Walker method"""
+
+    def __init__(self, X):
+        self.X = X - np.mean(X)
+
+    def autocorr(self, lag=10):
+        c = np.correlate(self.X, self.X, 'full')
+        mid = len(c) // 2
+        acov = c[mid:mid + lag]
+        acor = acov / acov[0]
+        return (acor)
+
+    def fit(self, p=5):
+        ac = self.autocorr(p+1)
+        R = toeplitz(ac[:p])
+        r = ac[1:p+1]
+        return np.linalg.solve(R, r)
+
+
+class FiltFiltARHilbertFilter:
+    def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1, **kwargs):
+        n_taps_buffer = int(buffer_s*fs)
+        self.n_taps = n_taps_buffer
+        self.buffer = SlidingWindowBuffer(n_taps_buffer)
+        self.ba_bandpass = sg.butter(butter_order, [band[0]/fs*2, band[1]/fs*2], 'band')
+        self.delay = delay
+        self.n_taps_edge_left = n_taps_edge
+        self.n_taps_edge_right = max(n_taps_edge, n_taps_edge-delay)
+        self.ar_order = ar_order
+        self.band = band
+        self.fs = fs
+        self.max_chunk_size=max_chunk_size
+
+    def apply(self, chunk):
+        if chunk.shape[0] <= self.max_chunk_size:
+            x = self.buffer.update_buffer(chunk)
+            y = sg.filtfilt(*self.ba_bandpass, x)
+            if self.delay < self.n_taps_edge_left:
+
+                ar = YW(y.real[:-self.n_taps_edge_left]).fit(self.ar_order)[::-1]
+
+                pred = np.concatenate([y.real[:-self.n_taps_edge_left], np.zeros(self.n_taps_edge_right+self.n_taps_edge_left)])
+                for j in range(self.n_taps_edge_left + self.n_taps_edge_right):
+                    pred[self.n_taps-self.n_taps_edge_left+j] = ar.dot(pred[self.n_taps-self.n_taps_edge_left+j-self.ar_order:self.n_taps-self.n_taps_edge_left+j])
+
+                an_signal = sg.hilbert(pred)
+                env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(chunk.shape[0])
+
+            else:
+                env = sg.hilbert(y)[-self.delay-chunk.shape[0]+1:-self.delay+1] * np.ones(chunk.shape[0])
+
+            return env
+
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
+
+
+
 if __name__ == '__main__':
     import pandas as pd
     dataset = "alpha2-delay-subj-21_12-06_12-15-09"
@@ -148,10 +224,16 @@ if __name__ == '__main__':
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
     cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
 
-    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
+    from time import time
+    t0 = time()
+    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, 20, delay, 50, 1).apply(x))
+    print(time()-t0)
+
+    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0], np.corrcoef(y, ffiltar_filter_y)[1,0])
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)
     plt.plot(whilbert_filter_y)
     plt.plot(cfir_filter_y)
+    plt.plot(ffiltar_filter_y)
 

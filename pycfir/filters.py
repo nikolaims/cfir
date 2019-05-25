@@ -250,16 +250,6 @@ class FiltFiltARHilbertFilter:
                 an_signal = sg.hilbert(pred)
                 env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(len(chunk))
 
-                #
-                # plt.plot(x, alpha=0.1)
-                # plt.plot(pred, alpha=0.9)
-                # plt.plot(np.abs(an_signal))
-                # plt.plot(y[:-self.n_taps_edge_left], 'k')
-                # plt.plot(y, 'k--')
-                #
-                # plt.show()
-
-
             else:
                 env = sg.hilbert(y)[-self.delay-len(chunk)+1:-self.delay+1] * np.ones(len(chunk))
 

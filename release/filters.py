@@ -147,31 +147,37 @@ class SlidingWindowBuffer:
         return self.buffer
 
 
-class YW(object):
-    """A class to fit AR model using Yule-Walker method"""
+class ARPredictor:
+    def __init__(self, order):
+        self.order = order
+        self.ar = None
 
-    def __init__(self, X):
-        self.X = X - np.mean(X)
+    def fit(self, x):
+        x -= x.mean()
+        c = np.correlate(x, x, 'full')
+        acov = c[c.shape[0]//2 : c.shape[0]//2 + self.order + 1]
+        ac = acov / acov[0]
+        R = toeplitz(ac[:self.order])
+        r = ac[1:self.order+1]
+        ar = np.linalg.solve(R, r)
+        self.ar = ar[::-1]
+        return self
 
-    def autocorr(self, lag=10):
-        c = np.correlate(self.X, self.X, 'full')
-        mid = len(c) // 2
-        acov = c[mid:mid + lag]
-        acor = acov / acov[0]
-        return (acor)
+    def predict(self, x, n_steps):
+        mean_x = x.mean()
+        pred = np.concatenate([x-mean_x, np.zeros(n_steps)])
+        for j in range(n_steps):
+            pred[x.shape[0] + j] = self.ar.dot(pred[x.shape[0] + j - self.order:x.shape[0] + j])
+        return pred+mean_x
 
-    def fit(self, p=5):
-        ac = self.autocorr(p+1)
-        R = toeplitz(ac[:p])
-        r = ac[1:p+1]
-        return np.linalg.solve(R, r)
+    def fit_predict(self, x, n_steps):
+        return self.fit(x).predict(x, n_steps)
 
 
 class FiltFiltARHilbertFilter:
-    def __init__(self, band, fs, n_taps_edge, delay, ar_order, max_chunk_size, butter_order=1, buffer_s=1, **kwargs):
-        n_taps_buffer = int(buffer_s*fs)
-        self.n_taps = n_taps_buffer
-        self.buffer = SlidingWindowBuffer(n_taps_buffer)
+    def __init__(self, band, fs, delay, n_taps, n_taps_edge, ar_order, max_chunk_size, butter_order=2, **kwargs):
+        self.n_taps = n_taps
+        self.buffer = SlidingWindowBuffer(self.n_taps)
         self.ba_bandpass = sg.butter(butter_order, [band[0]/fs*2, band[1]/fs*2], 'band')
         self.delay = delay
         self.n_taps_edge_left = n_taps_edge
@@ -187,11 +193,8 @@ class FiltFiltARHilbertFilter:
             y = sg.filtfilt(*self.ba_bandpass, x)
             if self.delay < self.n_taps_edge_left:
 
-                ar = YW(y.real[:-self.n_taps_edge_left]).fit(self.ar_order)[::-1]
 
-                pred = np.concatenate([y.real[:-self.n_taps_edge_left], np.zeros(self.n_taps_edge_right+self.n_taps_edge_left)])
-                for j in range(self.n_taps_edge_left + self.n_taps_edge_right):
-                    pred[self.n_taps-self.n_taps_edge_left+j] = ar.dot(pred[self.n_taps-self.n_taps_edge_left+j-self.ar_order:self.n_taps-self.n_taps_edge_left+j])
+                pred = ARPredictor(self.ar_order).fit_predict(y.real[:-self.n_taps_edge_left], self.n_taps_edge_left+self.n_taps_edge_right)
 
                 an_signal = sg.hilbert(pred)
                 env = an_signal[-self.n_taps_edge_right-self.delay-len(chunk)+1:-self.n_taps_edge_right-self.delay+1]*np.ones(chunk.shape[0])
@@ -215,7 +218,7 @@ if __name__ == '__main__':
     #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 10
+    delay = 0
     weights = np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2].mean(1)
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
@@ -226,7 +229,7 @@ if __name__ == '__main__':
 
     from time import time
     t0 = time()
-    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, 20, delay, 50, 1).apply(x))
+    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, delay, 2000, 20, 20, 1, 1).apply(x))
     print(time()-t0)
 
     print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0], np.corrcoef(y, ffiltar_filter_y)[1,0])
@@ -236,4 +239,12 @@ if __name__ == '__main__':
     plt.plot(whilbert_filter_y)
     plt.plot(cfir_filter_y)
     plt.plot(ffiltar_filter_y)
+
+    # # x = np.sin(10 * 2 * np.pi * np.arange(100) / 500) + np.random.normal(0, 0.1, 100)
+    # # #
+    # x1 = band_hilbert(x[:1000], fs, band).real
+    # plt.plot(ARPredictor(50).fit_predict(band_hilbert(x[:550], fs, band).real[:500], 500))
+    # plt.plot(x1)
+    # plt.plot(band_hilbert(x[:550], fs, band).real)
+
 

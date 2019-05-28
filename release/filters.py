@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.signal as sg
 import warnings
+import padasip as pa
 
 from scipy.linalg import toeplitz
 from statsmodels.regression.linear_model import yule_walker
@@ -254,6 +255,31 @@ class FiltFiltARHilbertFilter:
             return rt_emulate(self, chunk, self.max_chunk_size)
 
 
+class AdaptiveCFIRBandEnvelopeDetector(CFIRBandEnvelopeDetector):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, ada_n_taps=5000, mu=0.99, max_chunk_size=1, **kwargs):
+        super(AdaptiveCFIRBandEnvelopeDetector, self).__init__(band, fs, delay, n_taps, n_fft, weights)
+        self.rls = pa.filters.FilterRLS(n=len(self.b), mu=mu)
+        self.rls.w = self.b[::-1]
+        self.buffer = SlidingWindowBuffer(ada_n_taps + delay)
+        self.fs = fs
+        self.band = band
+        self.ada_n_taps = ada_n_taps
+        self.delay = delay
+        self.max_chunk_size = max_chunk_size
+        self.samples_counter = 0
+        self.n_taps = n_taps
+
+    def apply(self, chunk: np.ndarray):
+        if len(chunk) <= self.max_chunk_size:
+            x = self.buffer.update_buffer(chunk)
+            if self.samples_counter>self.buffer.buffer.shape[0]:
+                y = band_hilbert(x[:self.ada_n_taps], self.fs, self.band)[self.ada_n_taps//2]
+                self.rls.adapt(y, x[self.ada_n_taps//2+self.delay-self.b.shape[0] + 1:self.ada_n_taps//2 + 1+self.delay])
+            self.samples_counter += 1
+            return np.array([self.rls.w.dot(x[-self.n_taps:])])
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
+
 
 if __name__ == '__main__':
     import pandas as pd
@@ -264,27 +290,31 @@ if __name__ == '__main__':
     #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 0
-    weights = np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2].mean(1)
+    delay = -10
+    weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
     rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
     cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
+    rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=weights, max_chunk_size=1).apply(x))
 
     from time import time
     t0 = time()
-    ffiltar_filter_y = np.abs(ARCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
+    # ffiltar_filter_y = np.abs(ARCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
     print(time()-t0)
 
-    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0], np.corrcoef(y, ffiltar_filter_y)[1,0])
+    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
+    # print(np.corrcoef(y, ffiltar_filter_y)[1,0],
+    print(np.corrcoef(y, rlscfir_filter_y)[1,0])
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)
     plt.plot(whilbert_filter_y)
     plt.plot(cfir_filter_y)
-    plt.plot(ffiltar_filter_y)
+    # plt.plot(ffiltar_filter_y)
+    plt.plot(rlscfir_filter_y)
 
     # # x = np.sin(10 * 2 * np.pi * np.arange(100) / 500) + np.random.normal(0, 0.1, 100)
     # # #

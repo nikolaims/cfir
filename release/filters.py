@@ -2,58 +2,7 @@ import numpy as np
 import scipy.signal as sg
 import warnings
 import padasip as pa
-
-from scipy.linalg import toeplitz
-
-def rt_emulate(wfilter, x, chunk_size=1):
-    """
-    Emulate realtime filter chunks processing
-    :param wfilter: filter instance
-    :param x: signal to process
-    :param chunk_size: length of chunk
-    :return: filtered signal
-    """
-    y = [wfilter.apply(x[k:k+chunk_size]) for k in range(0, len(x), chunk_size)]
-    if len(x) % chunk_size:
-        y += [wfilter.apply(x[len(x) - len(x)%chunk_size:])]
-    return np.concatenate(y)
-
-
-def band_hilbert(x, fs, band, N=None, axis=-1):
-    """
-    Non-causal bandpass Hilbert transform to reconstruct analytic narrow-band signal
-    :param x: input signal
-    :param fs: sampling frequency
-    :param band: band of interest
-    :param N: fft n parameter
-    :param axis: fft axis parameter
-    :return: analytic narrow-band signal
-    """
-    x = np.asarray(x)
-    Xf = np.fft.fft(x, N, axis=axis)
-    w = np.fft.fftfreq(x.shape[0], d=1. / fs)
-    Xf[(w < band[0]) | (w > band[1])] = 0
-    x = np.fft.ifft(Xf, axis=axis)
-    return 2*x
-
-
-class SlidingWindowBuffer:
-    def __init__(self, n_taps, dtype='float'):
-        """
-        Sliding window buffer implement wrapper for numpy array to store last n_taps samples of dtype (util class)
-        :param n_taps: length of the buffer
-        :param dtype: buffer dtype
-        """
-        self.buffer = np.zeros(n_taps, dtype)
-        self.n_taps = n_taps
-
-    def update_buffer(self, chunk):
-        if len(chunk) < len(self.buffer):
-            self.buffer[:-len(chunk)] = self.buffer[len(chunk):]
-            self.buffer[-len(chunk):] = chunk
-        else:
-            self.buffer = chunk[-len(self.buffer):]
-        return self.buffer
+from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer
 
 
 class RectEnvDetector:
@@ -179,7 +128,7 @@ class AdaptiveCFIRBandEnvelopeDetector:
         if len(chunk) <= 1:
             x = self.buffer.update_buffer(chunk)
             if self.samples_counter>self.buffer.buffer.shape[0]:
-                y = band_hilbert(x[:self.ada_n_taps], self.fs, self.band)[self.ada_n_taps//2]
+                y = band_hilbert(x[:self.ada_n_taps], self.fs, self.band)[self.ada_n_taps // 2]
                 self.rls.adapt(y, x[self.ada_n_taps//2+self.delay-self.n_taps + 1:self.ada_n_taps//2 + 1+self.delay])
             self.samples_counter += 1
             return np.array([self.rls.w.dot(x[-self.n_taps:])])
@@ -197,7 +146,9 @@ if __name__ == '__main__':
     band = [8, 12]
     fs = 500
     delay = -10
-    weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)
+    from release.utils import magnitude_spectrum
+    _, weights = magnitude_spectrum(eeg_df['eeg'].iloc[10000:20000].values, fs, 2000)
+    #weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 

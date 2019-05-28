@@ -133,6 +133,25 @@ class CFIRBandEnvelopeDetector:
         return y
 
 
+class ARCFIRBandEnvelopeDetector:
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, n_taps_buffer=2000, n_taps_edge=3, ar_order=25,**kwargs):
+        self.cfir_filter = CFIRBandEnvelopeDetector(band, fs, delay+n_taps_edge, n_taps, n_fft, weights)
+        self.buffer = SlidingWindowBuffer(n_taps_buffer, 'complex')
+        self.n_taps_edge = n_taps_edge
+        self.ar_order = ar_order
+        self.delay = delay
+
+    def apply(self, chunk: np.ndarray):
+        y = self.cfir_filter.apply(chunk)
+        res = np.zeros_like(y)
+        for k in range(chunk.shape[0]):
+            x = self.buffer.update_buffer([y[k]])
+            pred_real = ARPredictor2(self.ar_order).fit_predict(x.real, self.n_taps_edge)
+            pred_imag = ARPredictor2(self.ar_order).fit_predict(x.imag, self.n_taps_edge)
+            res[k] = pred_real + 1j*pred_imag
+        res[np.isnan(res)] = 0
+        return res
+
 class SlidingWindowBuffer:
     def __init__(self, n_taps, dtype='float'):
         self.buffer = np.zeros(n_taps, dtype)
@@ -173,6 +192,33 @@ class ARPredictor:
     def fit_predict(self, x, n_steps):
         return self.fit(x).predict(x, n_steps)
 
+
+class ARPredictor2:
+    def __init__(self, order):
+        self.order = order
+        self.ar = None
+
+    def fit(self, x):
+        x -= x.mean()
+        c = np.correlate(x, x, 'full')
+        acov = c[c.shape[0]//2 : c.shape[0]//2 + self.order + 1]
+        ac = acov / acov[0]
+        R = toeplitz(ac[:self.order])
+        r = ac[1:self.order+1]
+        ar = np.linalg.solve(R, r)
+        self.ar = ar[::-1]
+        return self
+
+    def predict(self, x, n_steps):
+        mean_x = x.mean()
+        pred = SlidingWindowBuffer(self.order)
+        pred.buffer = x[-self.order:] - mean_x
+        for j in range(n_steps):
+            pred.update_buffer([self.ar.dot(pred.buffer)])
+        return pred.buffer[-1] + mean_x
+
+    def fit_predict(self, x, n_steps):
+        return self.fit(x).predict(x, n_steps)
 
 class FiltFiltARHilbertFilter:
     def __init__(self, band, fs, delay, n_taps, n_taps_edge, ar_order, max_chunk_size, butter_order=2, **kwargs):
@@ -229,7 +275,7 @@ if __name__ == '__main__':
 
     from time import time
     t0 = time()
-    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, delay, 2000, 20, 20, 1, 1).apply(x))
+    ffiltar_filter_y = np.abs(ARCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
     print(time()-t0)
 
     print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0], np.corrcoef(y, ffiltar_filter_y)[1,0])

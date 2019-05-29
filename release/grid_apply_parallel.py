@@ -1,7 +1,6 @@
-from pycfir.filters import RectEnvDetector, CFIRBandEnvelopeDetector, WHilbertFilter, FiltFiltARHilbertFilter, AdaptiveCFIRBandEnvelopeDetector
-from pycfir.utils import individual_band_snr
+from release.filters import RectEnvDetector, CFIRBandEnvelopeDetector, AdaptiveCFIRBandEnvelopeDetector
 import numpy as np
-from settings import DELAY_RANGE, FS, N_SAMPLES_TRAIN, N_SAMPLES_TEST
+from release.constants import DELAY_RANGE, FS, N_SAMPLES_TRAIN, N_SAMPLES_TEST
 import itertools
 import pandas as pd
 from tqdm import tqdm
@@ -15,20 +14,17 @@ kwargs_grid_dict = {}
 # rls
 kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [250, 500, 1000],#np.arange(200, 2000 + 1, 300),
-    'ada_n_taps': [400, 900],
-    'mu': [0.9, 0.8],
-    'max_chunk_size': [50],
-    'rls_reg_coeff': [0.0000001]
+    'n_taps': [500],#np.arange(200, 2000 + 1, 300),
+    'ada_n_taps': [5000],
+    'mu': [0.99],
 })
 
 
 # cFIR
 kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [300, 500, 1000, 2000]
+    'n_taps': [500]
 })
-
 
 
 # rect
@@ -36,26 +32,6 @@ kwargs_grid_dict['rect'] = (RectEnvDetector, {
     'n_taps_bandpass': np.arange(0, DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]//2)*2,
     'delay': np.arange(0, DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0])
 })
-
-
-#wHilbert
-kwargs_grid_dict['whilbert'] = (WHilbertFilter, {
-    'delay': np.arange(DELAY_RANGE[DELAY_RANGE>=0].min(), DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]),
-    'n_taps': [250, 500, 1000],
-    'max_chunk_size': [10]
-})
-
-
-#ffiltAR
-kwargs_grid_dict['ffiltar'] = (FiltFiltARHilbertFilter, {
-    'delay': DELAY_RANGE,
-    'n_taps_edge': [30, 40],#np.arange(10, 50, 10, dtype=int),
-    'ar_order': [25, 50],
-    'max_chunk_size': [10],
-    'buffer_s': [0.5, 1]
-})
-
-
 
 
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')#.query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"')

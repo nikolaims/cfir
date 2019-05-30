@@ -15,23 +15,23 @@ kwargs_grid_dict = {}
 # rls
 kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [500],#np.arange(200, 2000 + 1, 300),
+    'n_taps': [250, 500, 1000],#np.arange(200, 2000 + 1, 300),
     'ada_n_taps': [5000],
-    'mu': [0.8],
+    'mu': [0.9, 0.8, 0.7],
 })
 
 
 # cFIR
 kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [500],
+    'n_taps': [250, 500, 1000],
     'weights': [None]
 })
 
 # wcFIR
 kwargs_grid_dict['wcfir'] = (CFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
-    'n_taps': [500],
+    'n_taps': [250, 500, 1000],
     'weights': [True]
 })
 

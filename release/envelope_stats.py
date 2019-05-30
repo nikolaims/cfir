@@ -19,15 +19,15 @@ def delay_align(x, y, delay):
 def corr_delay(x, y, delay):
     x, y = delay_align(x, y, delay)
     corr = np.corrcoef(np.abs(x), np.abs(y))[0, 1]
-    phase = np.abs(np.mean(x/np.abs(x)*np.conj(y)/np.abs(y)))
-    # phase = np.angle(y)[1:][np.diff((np.angle(x) >= 0).astype(int))>0].mean() / 2 / np.pi * 360
-    # phase = np.abs(np.angle(y)[1:][np.diff((np.angle(x) >= 0).astype(int)) > 0] / 2 / np.pi * 360 - phase).mean()
+    #phase = np.abs(np.mean(x/np.abs(x)*np.conj(y)/np.abs(y)))
+    phase = np.angle(y)[1:][np.diff((np.angle(x) >= 0).astype(int))>0].mean() / 2 / np.pi * 360
+    phase = np.abs(np.angle(y)[1:][np.diff((np.angle(x) >= 0).astype(int)) > 0] / 2 / np.pi * 360 - phase).mean()
     return corr, phase
 
 
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
 
-methods = ['cfir', 'wcfir', 'rect']
+methods = ['cfir', 'rlscfir', 'wcfir', 'rect']
 
 
 columns = ['method', 'dataset', 'snr', 'sim', 'delay', 'metric', 'train', 'test', 'params']
@@ -88,7 +88,7 @@ stats_df['delay_cat'] = stats_df['delay'].astype(int)#.apply(lambda x: '[100, 20
 #flatui = ["#F15152", "#11A09E", "#91BFBE"]
 flatui = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#CCDAD1']
 #sns.set(rc={'figure.figsize': (5,5)})
-g = sns.catplot('delay_cat', 'test', 'method', data=stats_df, col='snr_cat', row='metric', sharey='row', kind='bar', palette=sns.color_palette(flatui), linewidth=0, edgecolor='#CCCCCC', height=2.5, aspect=1.5, col_order=['Low', 'High'])
+g = sns.catplot('delay_cat', 'test', 'method', data=stats_df.query('dataset=="alpha2-delay-subj-1_11-06_17-15-29"'), col='snr_cat', row='metric', sharey='row', kind='bar', palette=sns.color_palette(flatui), linewidth=0, edgecolor='#CCCCCC', height=2.5, aspect=1.5, col_order=['Low', 'High'])
 [ax.axvline(0.5, color='k', alpha=0.5, linestyle='--') for ax in g.axes.flatten()]
 g.axes[0,0].set_ylabel('$r_a$')
 g.axes[1,0].set_ylabel('$b_\phi$')

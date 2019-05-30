@@ -146,7 +146,7 @@ if __name__ == '__main__':
     #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = 100
+    delay = 0
     from release.utils import magnitude_spectrum
     _, weights = magnitude_spectrum(eeg_df['eeg'].iloc[10000:20000].values, fs, 2000)
     #weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)

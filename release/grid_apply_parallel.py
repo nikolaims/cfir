@@ -29,7 +29,18 @@ kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
     'n_taps': [250, 500, 1000],#np.arange(200, 2000 + 1, 300),
     'ada_n_taps': [5000],
-    'mu': [0.7],
+    'mu': [0.7, 0.8, 0.9],
+    'upd_samples': [25, 50],
+})
+
+# rls
+kwargs_grid_dict['rlswcfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
+    'delay': DELAY_RANGE,
+    'n_taps': [250, 500, 1000],#np.arange(200, 2000 + 1, 300),
+    'ada_n_taps': [5000],
+    'mu': [0.7, 0.8, 0.9],
+    'upd_samples': [25, 50],
+    'weigths': [True]
 })
 
 # cFIR

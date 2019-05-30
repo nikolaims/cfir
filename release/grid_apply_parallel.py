@@ -16,7 +16,7 @@ kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'delay': DELAY_RANGE,
     'n_taps': [500],#np.arange(200, 2000 + 1, 300),
     'ada_n_taps': [5000],
-    'mu': [0.99],
+    'mu': [0.9, 0.8],
 })
 
 

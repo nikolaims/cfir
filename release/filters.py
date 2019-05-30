@@ -101,7 +101,7 @@ class CFIRBandEnvelopeDetector:
 
 
 class AdaptiveCFIRBandEnvelopeDetector:
-    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, ada_n_taps=5000, mu=0.99, **kwargs):
+    def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, ada_n_taps=5000, mu=0.8, upd_n_samples=50, **kwargs):
         """
         Time domain adaptive complex-valued FIR envelope detector based on analytic signal reconstruction
         :param band: freq. range to apply band-pass filtering
@@ -123,17 +123,18 @@ class AdaptiveCFIRBandEnvelopeDetector:
         self.delay = delay
         self.samples_counter = 0
         self.n_taps = n_taps
+        self.upd_n_samples = upd_n_samples
 
     def apply(self, chunk: np.ndarray):
-        if len(chunk) <= 1:
+        if len(chunk) <= self.upd_n_samples:
             x = self.buffer.update_buffer(chunk)
             if self.samples_counter>self.buffer.buffer.shape[0]:
                 y = band_hilbert(x[:self.ada_n_taps], self.fs, self.band)[self.ada_n_taps // 2]
-                self.rls.adapt(y, x[self.ada_n_taps//2+self.delay-self.n_taps + 1:self.ada_n_taps//2 + 1+self.delay])
-            self.samples_counter += 1
-            return np.array([self.rls.w.dot(x[-self.n_taps:])])
+                self.rls.adapt(y, x[self.ada_n_taps//2+self.delay-self.n_taps + 1:self.ada_n_taps//2 + 1 + self.delay])
+            self.samples_counter += len(chunk)
+            return sg.lfilter(self.rls.w[::-1], [1.], x)[-len(chunk):]
         else:
-            return rt_emulate(self, chunk, 1)
+            return rt_emulate(self, chunk, self.upd_n_samples)
 
 
 if __name__ == '__main__':
@@ -145,7 +146,7 @@ if __name__ == '__main__':
     #x = np.random.normal(size=5000)
     band = [8, 12]
     fs = 500
-    delay = -10
+    delay = 100
     from release.utils import magnitude_spectrum
     _, weights = magnitude_spectrum(eeg_df['eeg'].iloc[10000:20000].values, fs, 2000)
     #weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)
@@ -155,7 +156,7 @@ if __name__ == '__main__':
     rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
     cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
-    rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=weights, max_chunk_size=1).apply(x))
+    rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=None, max_chunk_size=1).apply(x))
 
     from time import time
     t0 = time()

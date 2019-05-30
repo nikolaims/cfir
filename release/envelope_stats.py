@@ -27,7 +27,7 @@ def corr_delay(x, y, delay):
 
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
 
-methods = ['cfir', 'rlscfir', 'rect']
+methods = ['cfir', 'wcfir', 'rect']
 
 
 columns = ['method', 'dataset', 'snr', 'sim', 'delay', 'metric', 'train', 'test', 'params']

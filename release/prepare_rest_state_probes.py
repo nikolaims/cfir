@@ -15,7 +15,8 @@ info = pd.read_csv('data/alpha_subject_2.csv')
 datasets = [d for d in info['dataset'].unique() if (d is not np.nan)
             and (info.query('dataset=="{}"'.format(d))['type'].values[0] in ['FB0', 'FBMock', 'FB250', 'FB500'])][:]
 
-eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left_train', 'band_right_train', 'eeg', 'an_signal'])
+eeg_df = pd.DataFrame(columns=['sim', 'dataset', 'snr', 'band_left_train', 'band_right_train', 'band_left',
+                               'band_right', 'eeg', 'an_signal'])
 eeg_df['an_signal'] = eeg_df['an_signal'].astype('complex')
 
 # store data
@@ -42,21 +43,30 @@ for j_dataset, dataset in enumerate(datasets):
     # define SNR
     x = df['P4'].values[5 * FS:]
 
-    # find individual alpha and snr
-    band, snr = individual_max_snr_band(x, FS)
-    print(band, snr)
 
     # drop noisy datasets
     if len(x) < N_SAMPLES_TRAIN+N_SAMPLES_TEST+10 * FS: continue
+
+
+
+    # find individual alpha and snr
+    band, snr = individual_max_snr_band(x, FS)
+    print(j_dataset, band, snr)
 
     # save x
     an = band_hilbert(x, fs, band)[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
     x = x[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
 
+    # train band
+    band_train, snr_train = individual_max_snr_band(x[:N_SAMPLES_TRAIN], FS)
+    print(j_dataset, band_train, snr_train, '\n')
+
+
     # save info
     band, snr = individual_max_snr_band(x[:N_SAMPLES_TRAIN], FS)
-    eeg_df = eeg_df.append(pd.DataFrame({'sim': 0, 'dataset': dataset, 'snr': snr,
-                                 'band_left_train': band[0], 'band_right_train': band[1], 'eeg': x, 'an_signal': an},),
+    eeg_df = eeg_df.append(pd.DataFrame({'sim': 0, 'dataset': dataset, 'snr': snr, 'band_left_train': band_train[0],
+                                         'band_right_train': band_train[1], 'band_left': band[0], 'band_right': band[1],
+                                         'eeg': x, 'an_signal': an},),
                            ignore_index=True)
 
 

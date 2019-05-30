@@ -80,7 +80,7 @@ def magnitude_spectrum(x, fs, nperseg=WELCH_NPERSEG, return_onesided=False):
     :param fs: sampling frequency
     :return: freq, magn_spectrum
     """
-    freq, time, pxx = sg.stft(x, fs, nperseg=nperseg, return_onesided=return_onesided)
+    freq, time, pxx = sg.stft(x, fs, nperseg=nperseg, return_onesided=return_onesided, noverlap=int(nperseg*0.9))
     pxx = np.median(np.abs(pxx), 1)
     return freq, pxx
 
@@ -97,7 +97,6 @@ def individual_max_snr_band(x, fs, initial_band=ALPHA_BAND, band_half_width=None
     """
     band_half_width = band_half_width or (ALPHA_BAND[1] - ALPHA_BAND[0]) / 2
     snr_flanker_width = snr_flanker_width or (ALPHA_BAND[1] - ALPHA_BAND[0]) / 2
-    print(band_half_width)
     freq, pxx = magnitude_spectrum(x, fs)
     search_band_mask = _interval_mask(freq, *initial_band)
     best_snr = 0

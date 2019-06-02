@@ -59,7 +59,7 @@ kwargs_grid_dict['wcfir'] = (CFIRBandEnvelopeDetector, {
 
 # rect
 kwargs_grid_dict['rect'] = (RectEnvDetector, {
-    'n_taps_bandpass': np.arange(0, DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0]//2)*2,
+    'n_taps_bandpass': np.arange(0, DELAY_RANGE.max()+1, 5)*2,
     'delay': np.arange(0, DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0])
 })
 

@@ -6,7 +6,8 @@ import pandas as pd
 from tqdm import tqdm
 from copy import deepcopy
 
-from release.filters import RectEnvDetector, CFIRBandEnvelopeDetector, AdaptiveCFIRBandEnvelopeDetector
+from release.filters import \
+    RectEnvDetector, CFIRBandEnvelopeDetector, AdaptiveCFIRBandEnvelopeDetector, FiltFiltARHilbertFilter
 from release.constants import DELAY_RANGE, FS, N_SAMPLES_TRAIN, N_SAMPLES_TEST
 from release.utils import magnitude_spectrum
 
@@ -63,6 +64,15 @@ kwargs_grid_dict['rect'] = (RectEnvDetector, {
     'delay': np.arange(0, DELAY_RANGE.max()+1, np.diff(DELAY_RANGE)[0])
 })
 
+
+# ffiltar
+kwargs_grid_dict['ffiltar'] = (FiltFiltARHilbertFilter, {
+    'delay': [0],
+    'n_taps': [2000],
+    'ar_order': [10, 25, 50],
+    'n_taps_edge': [10, 25,  50],
+    'butter_order': [1, 2]
+})
 
 # loop over methods
 for method_name in kwargs_grid_dict:

@@ -26,9 +26,11 @@ def corr_delay(x, y, delay):
     return corr, phase_bias, phase_disp
 
 
+ONLY_ZERO_DELAY = False
+
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
 
-methods = ['cfir', 'rlscfir', 'wcfir', 'rect']
+methods = ['cfir', 'rlscfir', 'wcfir', 'rect', 'ffiltar'][:None if ONLY_ZERO_DELAY else -1]
 
 
 columns = ['method', 'dataset', 'snr', 'sim', 'delay', 'metric', 'train', 'test', 'params']
@@ -38,6 +40,7 @@ stats_df = pd.DataFrame(columns=columns, dtype=float)
 
 slices = dict([('train', slice(None, N_SAMPLES_TRAIN)), ('test', slice(N_SAMPLES_TRAIN, N_SAMPLES_TRAIN + N_SAMPLES_TEST))])
 
+if ONLY_ZERO_DELAY: DELAY_RANGE = np.array([0])
 
 for j_method, method_name in enumerate(methods):
     res = np.load('results/{}.npy'.format(method_name))
@@ -58,6 +61,7 @@ for j_method, method_name in enumerate(methods):
                 y_pred = res[params.pop('Index')]
                 assert params.pop('dataset') == dataset
                 assert params.pop('delay') == delay
+                # if method_name == 'ffiltar': y_pred = np.roll(y_pred, 5)
                 train_corr, train_phase_bias, train_phase_disp = corr_delay(y_pred[slices['train']], y_true[slices['train']], delay)
                 if (train_corr > (best_corr_dict[0] or 0)) or (train_phase_bias < (best_phase_bias_dict[0] or 1000)) or (train_phase_disp < (best_phase_disp_dict[0] or 1000)):
                     test_corr, test_phase_bias, test_phase_disp = corr_delay(y_pred[slices['test']], y_true[slices['test']], delay)
@@ -78,16 +82,16 @@ for j_method, method_name in enumerate(methods):
 
 stats_df['train'] = stats_df['train'].astype(float)
 stats_df['test'] = stats_df['test'].astype(float)
-stats_df.to_pickle('results/stats.pkl')
+# stats_df.to_pickle('results/stats.pkl')
 
-stats_df = pd.read_pickle('results/stats.pkl')
+# stats_df = pd.read_pickle('results/stats.pkl')
 stats_df['snr_cat'] = stats_df['snr'].apply(lambda x: 'High' if x> stats_df['snr'].median() else 'Low')
 
 stats_df['delay_cat'] = stats_df['delay'].astype(int)#.apply(lambda x: '[100, 200)' if x>=50 else ('[0, 100)' if x>=0 else '[-100, 0)'))
 
 
 #flatui = ["#F15152", "#11A09E", "#91BFBE"]
-flatui = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#CCDAD1']
+flatui = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#444444',]
 #sns.set(rc={'figure.figsize': (5,5)})
 g = sns.catplot('delay_cat', 'test', 'method', data=stats_df, col='metric', sharey='col', kind='point', dodge=True, palette=sns.color_palette(flatui), linewidth=0, edgecolor='#CCCCCC', height=3, aspect=1)
 def setup_axes(g, xlabel='Delay range, ms'):
@@ -107,7 +111,7 @@ def setup_axes(g, xlabel='Delay range, ms'):
 setup_axes(g)
 #for j in range(2): [g.axes[1,j].axhline(k*7.2, color='k', alpha=0.1, linewidth=1, zorder=-100) for k in range(10)]
 
-plt.savefig('results/viz/res-metrics.png', dpi=500)
+plt.savefig('results/viz/res-metrics-{}.png'.format('ffiltar' if ONLY_ZERO_DELAY else ''), dpi=500)
 
 
 
@@ -115,10 +119,10 @@ g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col
 
 g.axes[0,0].set_xlim(stats_df.snr.min()-0.1, stats_df.snr.max()+0.1)
 g.axes[0,0].set_ylim(0, 1)
-g.axes[0,1].set_ylim(-10, 30)
-g.axes[0,2].set_ylim(30, 80)
-g.axes[0,1].lines[-1].set_alpha(0)
-g.axes[0,2].lines[-1].set_alpha(0)
+g.axes[0,1].set_ylim(-20, 30)
+g.axes[0,2].set_ylim(30, 90)
+g.axes[0,1].lines[-1 - int(ONLY_ZERO_DELAY)].set_alpha(0)
+g.axes[0,2].lines[-1 - int(ONLY_ZERO_DELAY)].set_alpha(0)
 setup_axes(g, 'SNR')
 
-plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)
+plt.savefig('results/viz/res-metrics-delay0-{}.png'.format('ffiltar' if ONLY_ZERO_DELAY else ''), dpi=500)

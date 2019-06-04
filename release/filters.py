@@ -2,6 +2,8 @@ import numpy as np
 import scipy.signal as sg
 import warnings
 import padasip as pa
+from scipy.linalg import toeplitz
+
 from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer
 
 
@@ -137,6 +139,72 @@ class AdaptiveCFIRBandEnvelopeDetector:
             return rt_emulate(self, chunk, self.upd_n_samples)
 
 
+class ARPredictor:
+    def __init__(self, order):
+        """
+        Auto-regressive predictor based on Yule-Walker AR model parameters estimation
+        :param order: AR model order
+        """
+        self.order = order
+        self.ar = None
+
+    def fit(self, x):
+        x -= x.mean()
+        c = np.correlate(x, x, 'full')
+        acov = c[c.shape[0] // 2: c.shape[0] // 2 + self.order + 1]
+        ac = acov / acov[0]
+        R = toeplitz(ac[:self.order])
+        r = ac[1:self.order + 1]
+        ar = np.linalg.solve(R, r)
+        self.ar = ar[::-1]
+        return self
+
+    def predict(self, x, n_steps):
+        mean_x = x.mean()
+        pred = np.concatenate([x - mean_x, np.zeros(n_steps)])
+        for j in range(n_steps):
+            pred[x.shape[0] + j] = self.ar.dot(pred[x.shape[0] + j - self.order:x.shape[0] + j])
+        return pred + mean_x
+
+    def fit_predict(self, x, n_steps):
+        return self.fit(x).predict(x, n_steps)
+
+class FiltFiltARHilbertFilter:
+    def __init__(self, band, fs, delay, n_taps, n_taps_edge, ar_order, max_chunk_size=1, butter_order=1, **kwargs):
+        """
+        Sliding window Hilbert transform with AR prediction of the forward-backward filtered signal
+        :param band: freq. range to apply band-pass filtering
+        :param fs: sampling frequency
+        :param delay: delay of ideal filter in ms
+        :param n_taps: length of FIR
+        :param n_taps_edge: n_samples to crop and predict
+        :param ar_order: AR model order
+        :param max_chunk_size: recompute AR model each max_chunk_size samples
+        :param butter_order: order of the Butterworh filter
+        """
+        self.n_taps = n_taps
+        self.buffer = SlidingWindowBuffer(self.n_taps)
+        self.ba_bandpass = sg.butter(butter_order, [band[0] / fs * 2, band[1] / fs * 2], 'band')
+        self.n_taps_edge = n_taps_edge
+        self.ar_order = ar_order
+        self.band = band
+        self.fs = fs
+        self.max_chunk_size = max_chunk_size
+
+    def apply(self, chunk):
+        if chunk.shape[0] <= self.max_chunk_size:
+            x = self.buffer.update_buffer(chunk)
+            y = sg.filtfilt(*self.ba_bandpass, x)
+            pred = ARPredictor(self.ar_order).fit_predict(y.real[:-self.n_taps_edge], 2*self.n_taps_edge)
+            an_signal = sg.hilbert(pred)[-self.n_taps_edge - 1]
+            env = np.ones(chunk.shape[0], dtype=complex) * an_signal
+
+            return env
+
+        else:
+            return rt_emulate(self, chunk, self.max_chunk_size)
+
+
 if __name__ == '__main__':
     import pandas as pd
     dataset = "alpha2-delay-subj-21_12-06_12-15-09"
@@ -157,6 +225,7 @@ if __name__ == '__main__':
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
     cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
     rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=None, max_chunk_size=1).apply(x))
+    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, delay, 2000, 25, 50, max_chunk_size=1).apply(x))
 
     from time import time
     t0 = time()
@@ -166,16 +235,16 @@ if __name__ == '__main__':
     print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
     # print(np.corrcoef(y, ffiltar_filter_y)[1,0],
     print(np.corrcoef(y, rlscfir_filter_y)[1,0])
+    print(np.corrcoef(y, ffiltar_filter_y)[1, 0])
     import pylab as plt
     plt.plot(y)
     plt.plot(rect_filter_y)
     plt.plot(whilbert_filter_y)
     plt.plot(cfir_filter_y)
-    # plt.plot(ffiltar_filter_y)
     plt.plot(rlscfir_filter_y)
-
+    plt.plot(ffiltar_filter_y)
     # # x = np.sin(10 * 2 * np.pi * np.arange(100) / 500) + np.random.normal(0, 0.1, 100)
-    # # #
+    # # # #
     # x1 = band_hilbert(x[:1000], fs, band).real
     # plt.plot(ARPredictor(50).fit_predict(band_hilbert(x[:550], fs, band).real[:500], 500))
     # plt.plot(x1)

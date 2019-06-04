@@ -90,21 +90,35 @@ stats_df['delay_cat'] = stats_df['delay'].astype(int)#.apply(lambda x: '[100, 20
 flatui = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#CCDAD1']
 #sns.set(rc={'figure.figsize': (5,5)})
 g = sns.catplot('delay_cat', 'test', 'method', data=stats_df, col='metric', sharey='col', kind='point', dodge=True, palette=sns.color_palette(flatui), linewidth=0, edgecolor='#CCCCCC', height=3, aspect=1)
-[ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
-g.axes[0,0].set_ylabel('$r_a$')
-g.axes[0,1].set_ylabel('$b_\phi$')
-g.axes[0,2].set_ylabel('$\sigma_\phi$')
-g.axes[0,0].set_xlabel('Delay range, ms')
-g.axes[0,1].set_xlabel('Delay range, ms')
-g.axes[0,2].set_xlabel('Delay range, ms')
-g.axes[0,1].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 1].get_yticks()])
-g.axes[0,2].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 2].get_yticks()])
-g.axes[0,0].set_title('Envelope corr.')
-g.axes[0,1].set_title('0-Phase bias ')
-g.axes[0,2].set_title('0-Phase var.')
+def setup_axes(g, xlabel='Delay range, ms'):
+    [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
+    plt.subplots_adjust(wspace=0.35)
+    g.axes[0,0].set_ylabel('$r_a$')
+    g.axes[0,1].set_ylabel('$b_\phi$')
+    g.axes[0,2].set_ylabel('$\sigma_\phi$')
+    g.axes[0,0].set_xlabel(xlabel)
+    g.axes[0,1].set_xlabel(xlabel)
+    g.axes[0,2].set_xlabel(xlabel)
+    g.axes[0,1].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 1].get_yticks()])
+    g.axes[0,2].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 2].get_yticks()])
+    g.axes[0,0].set_title('A. Envelope corr.')
+    g.axes[0,1].set_title('B. Phase bias ')
+    g.axes[0,2].set_title('C. Phase var.')
+setup_axes(g)
 #for j in range(2): [g.axes[1,j].axhline(k*7.2, color='k', alpha=0.1, linewidth=1, zorder=-100) for k in range(10)]
 
-plt.savefig('results/viz/res-metrics.png', dpi=200)
+plt.savefig('results/viz/res-metrics.png', dpi=500)
 
 
-g = sns.relplot('delay', 'test', 'method', data=stats_df.query('dataset=="alpha2-delay-subj-21_12-06_12-15-09"'), row='metric', facet_kws=dict(sharey='row'), kind='line', palette=sns.color_palette(flatui),  height=2.5, aspect=1.5, col_order=['Low', 'High'])
+
+g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col='metric', sharey='none', palette=sns.color_palette(flatui), height=3, aspect=1, ci=None)
+
+g.axes[0,0].set_xlim(stats_df.snr.min()-0.1, stats_df.snr.max()+0.1)
+g.axes[0,0].set_ylim(0, 1)
+g.axes[0,1].set_ylim(-10, 30)
+g.axes[0,2].set_ylim(30, 80)
+g.axes[0,1].lines[-1].set_alpha(0)
+g.axes[0,2].lines[-1].set_alpha(0)
+setup_axes(g, 'SNR')
+
+plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)

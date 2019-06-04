@@ -2,7 +2,7 @@ import pandas as pd
 import pylab as plt
 import numpy as np
 import seaborn as sns
-from pycfir.filters import CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter, FiltFiltARHilbertFilter
+from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector
 from settings import FS, DELAY_RANGE
 from sklearn.metrics import roc_auc_score, average_precision_score, balanced_accuracy_score
 
@@ -25,15 +25,15 @@ stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}" & delay=={} 
 
 alpha=10
 y_true = get_classes(envelope, alpha)
-DELAY_RANGE = np.arange(-50, 200, 10)
 acc = np.zeros(len(DELAY_RANGE))
 acc_rand = np.zeros(len(DELAY_RANGE))
 
 for method_name, method_class in zip(
-        ['cfir', 'rect', 'whilbert', 'ffiltar'],
-        [CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter, FiltFiltARHilbertFilter]):
+        ['cfir', 'rect', 'wcfir',],
+        [CFIRBandEnvelopeDetector, RectEnvDetector, CFIRBandEnvelopeDetector]):
     for d, DELAY in enumerate(DELAY_RANGE):
         params = stats_df.query('method=="{}" & metric=="corr"'.format(method_name))['params'].values[0]
+
         env_det = method_class(band=band, fs=FS, delay=DELAY, **params)
         envelope_pred = np.abs(env_det.apply(eeg_df['eeg'].values))
 
@@ -56,11 +56,12 @@ for method_name, method_class in zip(
     plt.plot(DELAY_RANGE*2, acc*100, label=method_name)
 
 
-plt.legend()
-plt.axhline(balanced_accuracy_score(y_true, y_true*0+1)*100, color='k', linestyle='--')
+plt.axhline(balanced_accuracy_score(y_true, y_true*0+1)*100, color='k', linestyle='--', label='all-0')
 plt.xlabel('Delay, ms')
+
+plt.legend()
 plt.ylabel('Balanced accuracy score, %')
-plt.axvline(0, color='k', linestyle='--')
+plt.axvline(0, color='k', linestyle='--', alpha=0.5)
 # plt.plot(envelope0ms)
 # plt.plot(envelope)
 #

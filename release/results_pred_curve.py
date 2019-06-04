@@ -30,7 +30,7 @@ stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}"'.format(data
 flatui = {'cfir':'#0099d8', 'acfir': '#84BCDA', 'wcfir':'#FE4A49', 'rect':'#A2A79E'}
 
 
-#DELAY_RANGE = np.array([-100, -25, 0, 25, 100])
+DELAY_RANGE = np.array([-50, 0, 50, 150])
 acc = np.zeros(len(DELAY_RANGE))
 acc_rand = np.zeros(len(DELAY_RANGE))
 
@@ -44,7 +44,7 @@ post = 250
 t = np.arange(-pre, post)/FS*1000
 
 
-delay_dict = {-100: -50, -50: -50, -25:-25,   0:0,  25:25,  50:50, 100:50}
+delay_dict = {-150: -50, -50: -50, -25:-25,   0:0,  25:25,  50:50, 100:50, 150:50}
 lines = []
 for method_name, method_class in zip(
         ['cfir', 'rect', 'wcfir'][1:3],
@@ -64,25 +64,35 @@ for method_name, method_class in zip(
         h, = axes[d//3, d%3].plot(t, np.mean(spindles, 0), color=flatui[method_name])
         # axes[d // 3, d % 3].plot(t, np.array(spindles).T, color=flatui[method_name], alpha=0.5)
         axes[d // 3, d % 3].fill_between(t, np.mean(spindles, 0)-np.std(spindles, 0), np.mean(spindles, 0)+np.std(spindles, 0), color=flatui[method_name], alpha=0.1)
-        axes[d // 3, d % 3].text(-740, 12, 'D = {}ms'.format(DELAY*2))
+        axes[d // 3, d % 3].text(-740, 12, '{}ms'.format(DELAY*2))
         if d==0: lines.append(h)
 
 spindles = []
 for detection in np.random.randint(pre, len(envelope)-post, 1000):
     spindles.append(envelope[detection-pre:detection+post])
-h, = axes[1, 2].plot(t, np.mean(spindles, 0), color='k')
+h, = axes[1, 1].plot(t, np.mean(spindles, 0), color='k')
 lines.append(h)
-# axes[d // 3, d % 3].plot(t, np.array(spindles).T, color=flatui[method_name], alpha=0.5)
-axes[1, 2].fill_between(t, np.mean(spindles, 0) - np.std(spindles, 0),
+axes[1, 1].fill_between(t, np.mean(spindles, 0) - np.std(spindles, 0),
                                  np.mean(spindles, 0) + np.std(spindles, 0), color='k', alpha=0.1)
-axes[1, 2].text(-740, 12, 'rand')
+axes[1, 1].text(-740, 12, 'rand')
 [ax.axvline(0, linestyle='--', color='k', alpha=0.5, zorder=-100) for ax in axes.ravel()]
 
+
+detections = np.where(np.diff(1*(envelope>np.percentile(envelope, 95)))>0)[0]
+spindles = []
+for detection in detections:
+    if detection > pre and detection < len(envelope) - post:
+        spindles.append(envelope[detection-pre:detection+post])
+h, = axes[1, 2].plot(t, np.mean(spindles, 0), 'k--')
+# axes[d // 3, d % 3].plot(t, np.array(spindles).T, color=flatui[method_name], alpha=0.5)
+axes[1, 2].fill_between(t, np.mean(spindles, 0)-np.std(spindles, 0), np.mean(spindles, 0)+np.std(spindles, 0), color='k', alpha=0.1)
+axes[1, 2].text(-740, 12, 'ideal')
+lines.append(h)
 
 
 axes[1,1].set_xticks([-500, 0, 500])
 fig.text(0.02, 0.5, 'Envelope, $\mu V$', va='center', rotation='vertical')
-fig.text(0.5, 0.04, 'Time, s', ha='center')
+fig.text(0.5, 0.04, 'Time, ms', ha='center')
 
-plt.figlegend(lines, ['rect', 'wcfir', 'rand'])
+plt.figlegend(lines, ['rect', 'wcfir', 'rand', 'ideal'])
 plt.savefig('results/viz/res-spindles.png', dpi=500)

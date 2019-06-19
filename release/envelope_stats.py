@@ -74,7 +74,7 @@ for j_method, method_name in enumerate(methods):
                         best_phase_disp_dict = (train_phase_disp, test_phase_disp, params)
 
 
-            stats_dict = {'method': method_name, 'dataset': dataset, 'snr': snr, 'sim': sim, 'delay': delay,
+            stats_dict = {'method': method_name, 'dataset': dataset, 'snr': snr, 'sim': sim, 'delay': delay*2,
                           'metric': ['corr', 'phase_bias', 'phase_disp'], 'train': [best_corr_dict[0], best_phase_bias_dict[0], best_phase_disp_dict[0]],
                           'test': [best_corr_dict[1], best_phase_bias_dict[1], best_phase_disp_dict[1]], 'params': [best_corr_dict[2], best_phase_bias_dict[2], best_phase_disp_dict[2]]}
 
@@ -94,7 +94,7 @@ stats_df['delay_cat'] = stats_df['delay'].astype(int)#.apply(lambda x: '[100, 20
 flatui = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#444444',]
 #sns.set(rc={'figure.figsize': (5,5)})
 g = sns.catplot('delay_cat', 'test', 'method', data=stats_df, col='metric', sharey='col', kind='point', dodge=True, palette=sns.color_palette(flatui), linewidth=0, edgecolor='#CCCCCC', height=3, aspect=1)
-def setup_axes(g, xlabel='Delay range, ms'):
+def setup_axes(g, xlabel='Delay, ms'):
     [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
     plt.subplots_adjust(wspace=0.35)
     g.axes[0,0].set_ylabel('$r_a$')

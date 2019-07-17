@@ -48,7 +48,7 @@ for j_n_states, n_states in enumerate([2, 3]):
         acc = np.zeros(len(DELAY_RANGE))*np.nan
         for d, DELAY in enumerate(DELAY_RANGE):
             if method_name == 'rect' and DELAY <0: continue
-            params = stats_df.query('method=="{}" & metric=="corr" & delay=="{}"'.format(method_name, DELAY))['params'].values[0]
+            params = stats_df.query('method=="{}" & metric=="corr" & delay=="{}"'.format(method_name, DELAY*2))['params'].values[0]
 
             params['weights'] = weights if method_name == 'wcfir' else None
             env_det = method_class(band=band, fs=FS, delay=DELAY, **params)

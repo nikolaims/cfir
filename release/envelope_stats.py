@@ -16,11 +16,11 @@ def delay_align(x, y, delay):
     return x, y
 
 
-def corr_delay(x, y, delay):
+def corr_delay(x, y, delay, bias=0):
     x, y = delay_align(x, y, delay)
     corr = np.corrcoef(np.abs(x), np.abs(y))[0, 1]
     #phase = np.abs(np.mean(x/np.abs(x)*np.conj(y)/np.abs(y)))
-    phase_zero_moments = np.diff((np.angle(x) >= 0).astype(int))>0
+    phase_zero_moments = np.diff((np.angle(x) >= 0 - bias/360*2*np.pi).astype(int))>0
     phase_bias = np.angle(y)[1:][phase_zero_moments].mean() / 2 / np.pi * 360
     phase_disp = (((np.angle(y)[1:][phase_zero_moments] / 2 / np.pi * 360 - phase_bias)**2).mean())**0.5
     return corr, phase_bias, phase_disp
@@ -63,7 +63,7 @@ for j_method, method_name in enumerate(methods):
                 # if method_name == 'ffiltar': y_pred = np.roll(y_pred, 5)
                 train_corr, train_phase_bias, train_phase_disp = corr_delay(y_pred[slices['train']], y_true[slices['train']], delay)
                 if (train_corr > (best_corr_dict[0] or 0)) or (train_phase_bias < (best_phase_bias_dict[0] or 1000)) or (train_phase_disp < (best_phase_disp_dict[0] or 1000)):
-                    test_corr, test_phase_bias, test_phase_disp = corr_delay(y_pred[slices['test']], y_true[slices['test']], delay)
+                    test_corr, test_phase_bias, test_phase_disp = corr_delay(y_pred[slices['test']], y_true[slices['test']], delay, train_phase_bias)
                     if train_corr > (best_corr_dict[0] or 0):
                         best_corr_dict = (train_corr, test_corr, params)
                     if train_phase_bias < (best_phase_bias_dict[0] or 1000):
@@ -96,6 +96,7 @@ g = sns.catplot('delay_cat', 'test', 'method', data=stats_df, col='metric', shar
 def setup_axes(g, xlabel='Delay, ms'):
     [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
     plt.subplots_adjust(wspace=0.35)
+    g.axes[0, 1].set_ylim(-5, 10)
     g.axes[0,0].set_ylabel('$r_a$')
     g.axes[0,1].set_ylabel('$b_\phi$')
     g.axes[0,2].set_ylabel('$\sigma_\phi$')
@@ -107,6 +108,7 @@ def setup_axes(g, xlabel='Delay, ms'):
     g.axes[0,0].set_title('A. Envelope corr.')
     g.axes[0,1].set_title('B. Phase bias ')
     g.axes[0,2].set_title('C. Phase var.')
+
 setup_axes(g)
 #for j in range(2): [g.axes[1,j].axhline(k*7.2, color='k', alpha=0.1, linewidth=1, zorder=-100) for k in range(10)]
 
@@ -118,10 +120,12 @@ g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col
 
 g.axes[0,0].set_xlim(stats_df.snr.min()-0.1, stats_df.snr.max()+0.1)
 g.axes[0,0].set_ylim(0, 1)
-g.axes[0,1].set_ylim(-20, 30)
+g.axes[0,1].set_ylim(-10, 10)
 g.axes[0,2].set_ylim(30, 90)
 g.axes[0,1].lines[methods.index('rect')].set_alpha(0)
 g.axes[0,2].lines[methods.index('rect')].set_alpha(0)
 setup_axes(g, 'SNR')
+g.axes[0,1].set_ylim(-10, 10)
+g.axes[0, 1].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 1].get_yticks()])
 
 plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)

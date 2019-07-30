@@ -162,4 +162,4 @@ for j, snr in enumerate(snrs):
                     ignore_index=True)
 
 # save data
-eeg_df.to_pickle('data/rest_state_probes.pkl')
+eeg_df.to_pickle('data/rest_state_probes_real_and_sim.pkl')

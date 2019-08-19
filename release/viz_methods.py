@@ -1,5 +1,5 @@
 from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer, magnitude_spectrum
-from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector
+from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter
 import numpy as np
 import scipy.signal as sg
 import pandas as pd
@@ -46,16 +46,18 @@ w = np.fft.fftfreq(x.shape[0], d=1. / FS)
 Xf[(w < band[0]) | (w > band[1])] = 0
 
 plt.figure(figsize=(4,2))
-plt.plot(w, np.abs(np.fft.fft(x)), cm['dg'])
-plt.plot(w, np.abs(Xf), cm['dg'], alpha=0.8)
+#plt.plot(w, np.abs(np.fft.fft(x)), cm['dg'])
+plt.fill_between(w, 0,  np.abs(np.fft.fft(x)), color=cm['dg'], linewidth=2)
+plt.plot(w, np.abs(Xf)*2, cm['dg'], alpha=0)
 setup_gca()
 plt.xlim([-20, 20])
 plt.savefig(fdir+'ideal_spec.png', dpi=500, transparent=True)
 plt.close()
 
 plt.figure(figsize=(4,2))
-plt.plot(w, np.abs(np.fft.fft(x)), cm['dg'], alpha=0.1)
-plt.plot(w, np.abs(Xf), cm['dg'])
+#plt.plot(w, np.abs(np.fft.fft(x)), cm['dg'], alpha=0.1)
+plt.fill_between(w, 0,  np.abs(Xf), color=cm['dg'], linewidth=2)
+#plt.plot(w, np.abs(Xf), cm['dg'])
 setup_gca()
 plt.xlim([-20, 20])
 plt.savefig(fdir+'ideal_spec_crop.png', dpi=500, transparent=True)
@@ -222,3 +224,95 @@ plt.plot(y[slc].real, cm['b'], linestyle='-', alpha=0.)
 setup_gca()
 plt.savefig(fdir+'rect_b_smooth.png', dpi=500, transparent=True)
 plt.close()
+
+
+# whilbert
+delay = 100
+filt = WHilbertFilter(band, FS, delay, 200, 2000)
+y = filt.apply(eeg)
+
+plt.figure(figsize=(4,2))
+plt.plot(y[slc].real, cm['b'], linestyle='-', alpha=1)
+plt.plot(y[slc].imag, cm['b'], linestyle='--', alpha=0.5)
+setup_gca()
+plt.savefig(fdir+'whilb_an.png', dpi=500, transparent=True)
+plt.close()
+
+win_slc = slice(550, 750)
+win_x = band_hilbert(eeg[slc][win_slc], FS, band, 2000)
+
+
+
+
+plt.figure(figsize=(4,2))
+plt.plot(eeg[slc], alpha=0)
+#plt.plot(np.arange(wt)[win_slc], win_x.imag, cm['b'], linestyle='--', alpha=0.5)
+plt.plot(np.arange(wt)[win_slc], win_x.real, cm['b'])
+# plt.plot(np.arange(wt)[win_slc][100], win_x.real[100], 'k', marker='o', markersize=10)
+# plt.plot(np.arange(wt)[win_slc][100], win_x.imag[100], 'k', marker='o', markersize=10, alpha=0.5)
+setup_gca()
+plt.savefig(fdir+'whilb_filt_win.png', dpi=500, transparent=True)
+plt.close()
+
+plt.figure(figsize=(4,2))
+plt.plot(eeg[slc], alpha=0)
+plt.plot(np.arange(wt)[win_slc], win_x.imag, cm['b'], linestyle='--', alpha=0.5)
+plt.plot(np.arange(wt)[win_slc], win_x.real, cm['b'])
+# plt.plot(np.arange(wt)[win_slc][100], win_x.real[100], 'k', marker='o', markersize=10)
+# plt.plot(np.arange(wt)[win_slc][100], win_x.imag[100], 'k', marker='o', markersize=10, alpha=0.5)
+setup_gca()
+plt.savefig(fdir+'whilb_an_win.png', dpi=500, transparent=True)
+plt.close()
+
+
+
+plt.figure(figsize=(4,2))
+plt.plot(eeg[slc], alpha=0)
+
+plt.plot(np.arange(wt)[win_slc], win_x.real, cm['b'], linestyle='-', alpha=0.3)
+plt.plot(np.arange(wt)[win_slc], win_x.imag, cm['b'], linestyle='--', alpha=0.1)
+plt.plot(np.arange(wt)[win_slc], np.abs(win_x), cm['b'])
+plt.plot(np.arange(wt)[win_slc][100], np.abs(win_x)[100], cm['b'], marker='o', markersize=7, markeredgewidth=2, markerfacecolor='w')
+# plt.plot(np.arange(wt)[win_slc][100], win_x.imag[100], 'k', marker='o', markersize=10, alpha=0.5)
+setup_gca()
+plt.savefig(fdir+'whilb_abs_win.png', dpi=500, transparent=True)
+plt.close()
+
+
+plt.figure(figsize=(4,2))
+plt.plot(eeg[slc], alpha=0)
+plt.plot(np.arange(wt)[win_slc], np.angle(win_x), cm['b'])
+plt.plot(np.arange(wt)[win_slc][100], np.angle(win_x)[100], cm['b'], marker='o', markersize=7, markeredgewidth=2, markerfacecolor='w')
+# plt.plot(np.arange(wt)[win_slc][100], win_x.imag[100], 'k', marker='o', markersize=10, alpha=0.5)
+setup_gca()
+plt.savefig(fdir+'whilb_angle_win.png', dpi=500, transparent=True)
+plt.close()
+
+
+# cfir
+delay = 100
+filt = CFIRBandEnvelopeDetector(band, FS, delay, 200)
+y = filt.apply(eeg)
+
+plt.figure(figsize=(4,2))
+
+plt.plot(y[slc].real, cm['b'], linestyle='-', alpha=0.3)
+plt.plot(y[slc].imag, cm['b'], linestyle='--', alpha=0.1)
+plt.plot(np.abs(y[slc]), cm['b'], linestyle='-', alpha=1)
+plt.plot(win_slc.stop, np.abs(y[slc])[win_slc.stop], cm['b'], linestyle='-', alpha=1, marker='o', markersize=7, markeredgewidth=2, markerfacecolor='w')
+setup_gca()
+plt.savefig(fdir+'whilb_abs.png', dpi=500, transparent=True)
+plt.close()
+
+plt.figure(figsize=(4,2))
+plt.plot(np.angle(y[slc]), cm['b'], linestyle='-', alpha=1)
+
+plt.plot(win_slc.stop, np.angle(y[slc])[win_slc.stop], cm['b'], linestyle='-', alpha=1, marker='o', markersize=7, markeredgewidth=2, markerfacecolor='w')
+setup_gca()
+plt.savefig(fdir+'whilb_phase.png', dpi=500, transparent=True)
+plt.close()
+
+# plt.savefig(fdir+'whilb_an_win.png', dpi=500, transparent=True)
+# plt.close()
+
+

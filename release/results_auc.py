@@ -35,8 +35,8 @@ alpha=5
 acc = np.zeros(len(DELAY_RANGE))
 acc_rand = np.zeros(len(DELAY_RANGE))
 
-fig, axes = plt.subplots(1, 2, sharey=True, figsize=(5,3))
-plt.subplots_adjust(bottom=0.15, left=0.15)
+fig, axes = plt.subplots(2, 2, sharey='col', figsize=(6,6))
+plt.subplots_adjust(hspace=0.4, wspace=0.4)
 
 for j_n_states, n_states in enumerate([2, 3]):
 
@@ -70,19 +70,51 @@ for j_n_states, n_states in enumerate([2, 3]):
             y_pred = get_classes(envelope_pred, alpha, n_states)
             acc[d] = balanced_accuracy_score(y_true, y_pred) if (method_name in ['cfir', 'wcfir'] or DELAY>=0) else np.nan
 
-        axes[j_n_states].plot(DELAY_RANGE*2, acc*100, '.-', label=method_name, color=flatui[method_name])
+        axes[j_n_states, 1].plot(DELAY_RANGE*2, acc*100, '.-', label=method_name, color=flatui[method_name])
 
-    axes[j_n_states].plot(DELAY_RANGE*2, DELAY_RANGE*0 + balanced_accuracy_score(y_true, y_true*0)*100, '.-',  color='k', label='all-high')
-[ax.set_xlabel('Delay, ms') for ax in axes]
-axes[1].set_xlabel('Delay, ms')
-axes[1].legend()
-axes[0].set_ylabel('Balanced accuracy score, %')
-axes[0].set_title('A. High/Other')
-axes[1].set_title('B. High/Middle/Low')
-[ax.axvline(0, color='k', linestyle='--', alpha=0.5, zorder=-1000) for ax in axes]
+    axes[j_n_states, 1].plot(DELAY_RANGE*2, DELAY_RANGE*0 + balanced_accuracy_score(y_true, y_true*0)*100, '.-',  color='k', label='all-high')
+# [ax.set_xlabel('Delay, ms') for ax in axes[:, 1]]
+axes[1, 1].set_xlabel('Delay, ms')
+axes[1, 1].legend()
+axes[0, 1].set_ylabel('Balanced accuracy score, %')
+axes[1, 1].set_ylabel('Balanced accuracy score, %')
+axes[0, 0].set_title('A. High/Other\n', x = 0)
+axes[1, 0].set_title('B. High/Middle/Low\n', ha='right')
+[ax.axvline(0, color='k', linestyle='--', alpha=0.5, zorder=-1000) for ax in axes[:, 1]]
 # plt.plot(envelope0ms)
 # plt.plot(envelope)
 #
 # sns.kdeplot(envelope, envelope0ms)
 
-plt.savefig('results/viz/res-classification.png', dpi=500)
+# plt.savefig('results/viz/res-classification.png', dpi=500)
+
+ax = axes
+# fig, ax = plt.subplots(2, figsize=(6, 6))
+up = np.percentile(envelope*1e6, 100-alpha)
+low = np.percentile(envelope*1e6, alpha)
+t = np.arange(len(envelope))/500
+
+ax[0, 0].plot(t-58, envelope*1e6, color='k')
+ax[0, 0].axhline(np.percentile(envelope*1e6, 100-alpha), color='k', linestyle='--')
+
+ax[0, 0].text(8.5, up+4, 'High', ha='center')
+ax[0, 0].text(8.5, up-3, 'Other', ha='center')
+# plt.axhspan(np.percentile(envelope*1e6, alpha), np.percentile(envelope*1e6, 100-alpha), color=flatui['cfir'], alpha=0.5)
+# plt.axhspan(np.percentile(envelope*1e6, alpha), -1000, color=flatui['wcfir'], alpha=0.5)
+ax[0, 0].set_ylim(-7, 20)
+ax[0, 0].set_xlim(0, 10)
+ax[0, 0].set_ylabel('Envelope, $uV$')
+
+ax[1, 0].plot(t-58, envelope*1e6, color='k')
+ax[1, 0].axhline(np.percentile(envelope*1e6, 100-alpha), color='k', linestyle='--')
+ax[1, 0].axhline(np.percentile(envelope*1e6, alpha), color='k', linestyle='--')
+ax[1, 0].text(8.5, up+4, 'High', ha='center')
+ax[1, 0].text(8.5, up-3, 'Middle', ha='center')
+ax[1, 0].text(8.5, low-5, 'Low', ha='center')
+# plt.axhspan(np.percentile(envelope*1e6, alpha), np.percentile(envelope*1e6, 100-alpha), color=flatui['cfir'], alpha=0.5)
+# plt.axhspan(np.percentile(envelope*1e6, alpha), -1000, color=flatui['wcfir'], alpha=0.5)
+ax[1, 0].set_ylim(-7, 20)
+ax[1, 0].set_xlim(0, 10)
+ax[1, 0].set_ylabel('Envelope, $uV$')
+ax[1, 0].set_xlabel('Time, s')
+plt.savefig('results/viz/res-classification-explained.png', dpi=500)

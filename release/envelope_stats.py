@@ -32,7 +32,7 @@ eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
 # utils
 methods = ['cfir', 'rlscfir', 'wcfir', 'rect', 'ffiltar']
 colors = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#444444']
-metrics = ['corr', 'phase_bias', 'phase_disp']
+metrics = ['corr', 'phase_bias', 'phase_abs_bias', 'phase_disp']
 slices = dict([('train', slice(None, N_SAMPLES_TRAIN)), ('test', slice(N_SAMPLES_TRAIN, N_SAMPLES_TRAIN + N_SAMPLES_TEST))])
 columns=['method', 'dataset', 'snr', 'sim', 'delay', 'metric', 'train', 'test', 'params']
 
@@ -98,50 +98,61 @@ for j_method, method_name in enumerate(methods):
             # save stats
             stats_dict = {'method': method_name, 'dataset': dataset, 'snr': snr, 'sim': sim, 'delay': delay*2,
                           'metric': metrics,
-                          'train':  [best_corr_dict[0], best_bias_dict[0], best_var_dict[0]],
-                          'test':   [best_corr_dict[1], best_bias_dict[1], best_var_dict[1]],
-                          'params': [best_corr_dict[2], best_bias_dict[2], best_var_dict[2]]}
+                          'train':  [best_corr_dict[0], best_bias_dict[0],
+                                     abs(best_bias_dict[0]) if best_bias_dict[0] else np.nan, best_var_dict[0]],
+                          'test':   [best_corr_dict[1], best_bias_dict[1],
+                                     abs(best_bias_dict[1]) if best_bias_dict[1] else np.nan, best_var_dict[1]],
+                          'params': [best_corr_dict[2], best_bias_dict[2], best_bias_dict[2], best_var_dict[2]]}
             stats_df = stats_df.append(pd.DataFrame(stats_dict), ignore_index=True)
 
 # update dtypes
 stats_df['train'] = stats_df['train'].astype(float)
 stats_df['test'] = stats_df['test'].astype(float)
 stats_df['delay'] = stats_df['delay'].astype(int)
+stats_df['row'] = stats_df['metric'].isin(['phase_bias', 'phase_abs_bias'])
+stats_df['col'] = stats_df['metric'].isin(['phase_disp', 'phase_abs_bias'])
 
 # save stats df
 stats_df.to_pickle('results/stats.pkl')
 
 
 # plot metrics trade-off
-g = sns.catplot('delay', 'test', 'method', data=stats_df, col='metric', sharey='col', kind='point', dodge=0.2,
-                palette=sns.color_palette(colors), linewidth=0, edgecolor='#CCCCCC', height=4, aspect=1)
+sns.set_style()
+g = sns.catplot('delay', 'test', 'method', data=stats_df, col='col', sharey='none', kind='point', dodge=0.2,
+                palette=sns.color_palette(colors), linewidth=0, edgecolor='#CCCCCC', height=4, aspect=1, row='row')
 def setup_axes(g, xlabel='Delay, ms'):
-    [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
-    g.axes[0, 1].axhline(0, color='k', alpha=0.5, linestyle=':', zorder=-1000)
-    plt.subplots_adjust(wspace=0.35)
+    # [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
+    g.axes[1, 0].axhline(0, color='k', alpha=0.5, linestyle=':', zorder=-1000)
+    g.axes[1, 1].axhline(0, color='k', alpha=0.5, linestyle=':', zorder=-1000)
+    plt.subplots_adjust(hspace=0.2, wspace=0.2)
     g.axes[0, 0].set_ylim(0, 1)
-    g.axes[0, 1].set_ylim(-6, 10)
-    g.axes[0, 2].set_ylim(20, 100)
+    g.axes[1, 1].set_ylim(-5, 10)
+    g.axes[1, 0].set_ylim(-5, 10)
+    g.axes[0, 1].set_ylim(0, 90)
     g.axes[0,0].set_ylabel('$r_a$')
-    g.axes[0,1].set_ylabel('$b_\phi$')
-    g.axes[0,2].set_ylabel('$\sigma_\phi$')
-    g.axes[0,0].set_xlabel(xlabel)
-    g.axes[0,1].set_xlabel(xlabel)
-    g.axes[0,2].set_xlabel(xlabel)
-    g.axes[0,1].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 1].get_yticks()])
-    g.axes[0,2].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 2].get_yticks()])
-    g.axes[0,0].set_title('A. Envelope corr.')
-    g.axes[0,1].set_title('B. Phase bias ')
-    g.axes[0,2].set_title('C. Phase var.')
+    g.axes[0,1].set_ylabel('$\sigma_\phi$')
+    g.axes[1, 0].set_ylabel('$b_\phi$')
+    g.axes[1, 1].set_ylabel('$|b_\phi|$')
+    g.axes[1,0].set_xlabel(xlabel)
+    g.axes[1,1].set_xlabel(xlabel)
+    for k, j in [(0,1), (1,0), (1,1)]:
+        g.axes[k, j].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[k, j].get_yticks()])
+    # g.axes[0,1].set_yticklabels(['${:n}^\circ$'.format(x) for x in g.axes[0, 2].get_yticks()])
+    g.axes[0, 0].set_title('A. Envelope corr.')
+    g.axes[0, 1].set_title('B. Phase SD')
+    g.axes[1, 0].set_title('C. Phase bias ')
+    g.axes[1, 1].set_title('D. Phase abs. bias.')
 setup_axes(g)
 plt.savefig('results/viz/res-metrics.png', dpi=500)
 
 # plot zero delay metrics vs SNR
-g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col='metric', sharey='none',
-               palette=sns.color_palette(colors), height=4, aspect=1, ci=None)
+g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col='col', sharey='none',
+               palette=sns.color_palette(colors), height=4, aspect=1, ci=None, row='row')
 g.axes[0,0].set_xlim(stats_df.snr.min()-0.1, stats_df.snr.max()+0.1)
 
 g.axes[0,1].lines[methods.index('rect')].set_alpha(0)
-g.axes[0,2].lines[methods.index('rect')].set_alpha(0)
+g.axes[1,0].lines[methods.index('rect')].set_alpha(0)
+g.axes[1,1].lines[methods.index('rect')].set_alpha(0)
+
 setup_axes(g, 'SNR')
 plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)

@@ -316,3 +316,44 @@ plt.close()
 # plt.close()
 
 
+
+# cfir
+fig, axes = plt.subplots(6, 2, figsize=(10,5), sharex='col', sharey='col')
+plt.subplots_adjust(hspace=0.1, bottom=0.15, left=0.03, right=0.97)
+time = np.arange(slc.stop-slc.start)/FS
+for d, delay in enumerate([-50, 0, 50, 100, 150, 200]):
+    params = stats_df.query('method=="{}" & metric=="corr" & delay=="{}"'.format('cfir', delay))['params'].values[0]
+    filt = CFIRBandEnvelopeDetector(band, FS, delay//2, params['n_taps'])
+    y = filt.apply(eeg)
+    x = 2*np.fft.ifft(Xf)
+    if delay==0: axes[d, 0].plot(time, np.abs(x[slc]), cm['r'], linestyle='-', alpha=0.9)
+    if delay!=0: axes[d, 0].plot(time+delay/1000, np.abs(x[slc]), cm['dg'], linestyle='--', alpha=0.8)
+    axes[d, 0].plot(time, np.abs(y[slc])/max(np.abs(y[slc]))*max(np.abs(x[slc])), cm['b'], linestyle='-', alpha=1, zorder=-10)
+    if delay == 0:axes[d, 1].plot(time, np.angle(x[slc]), cm['r'], linestyle='-', alpha=0.8)
+    if delay != 0: axes[d, 1].plot(time+delay/1000, np.angle(x[slc]), cm['dg'], linestyle='--', alpha=0.8)
+    axes[d, 1].plot(time, np.angle(y[slc]), cm['b'], linestyle='-', alpha=1, zorder=-10)
+    axes[d, 0].set_yticks([])
+    axes[d, 0].set_ylabel('{} ms'.format(delay))
+    axes[d, 1].set_yticks([-np.pi, 0, np.pi])
+    axes[d, 1].set_yticklabels(['$-\pi$', '0', '$\pi$'])
+    axes[d, 1].spines['right'].set_visible(False)
+    axes[d, 1].spines['top'].set_visible(False)
+    axes[d, 0].spines['right'].set_visible(False)
+    axes[d, 0].spines['top'].set_visible(False)
+
+
+axes[0, 1].set_xlim(1.3, 1.8)
+axes[0, 1].set_ylim(-4, 4)
+axes[0, 0].set_xlim(0, 2)
+axes[-1, 0].set_xlabel('Time, s')
+axes[-1, 1].set_xlabel('Time, s')
+
+axes[0, 0].set_title('A. Envelope')
+axes[0, 1].set_title('B. Phase')
+
+
+lines = [plt.plot(np.nan,  color=cm['r'], linestyle='-', alpha=0.9)[0],
+         plt.plot(np.nan,  color=cm['dg'], linestyle='--', alpha=0.8)[0],
+         plt.plot(np.nan,  color=cm['b'], linestyle='-', alpha=1)[0]]
+plt.figlegend( lines, ['ideal', 'delayed ideal', 'estimation'], loc = 'lower center', ncol=5, labelspacing=0. )
+plt.savefig(fdir+'cfir_mult_d.png', dpi=500)

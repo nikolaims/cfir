@@ -169,6 +169,7 @@ class ARPredictor:
     def fit_predict(self, x, n_steps):
         return self.fit(x).predict(x, n_steps)
 
+
 class FiltFiltARHilbertFilter:
     def __init__(self, band, fs, delay, n_taps, n_taps_edge, ar_order, max_chunk_size=1, butter_order=1, **kwargs):
         """
@@ -205,6 +206,29 @@ class FiltFiltARHilbertFilter:
             return rt_emulate(self, chunk, self.max_chunk_size)
 
 
+class FiltFiltARHilbertFilterFIR:
+    def __init__(self, band, fs, delay, n_taps, n_taps_edge, ar_order, max_chunk_size=1, butter_order=2, **kwargs):
+        self.n_taps = n_taps
+        self.buffer = SlidingWindowBuffer(self.n_taps)
+        self.ba_bandpass = sg.firwin2(64*butter_order, [0, band[0], band[0], band[1], band[1], fs/2], [0, 0, 1, 1, 0, 0], fs=fs), [1., 0]
+        self.n_taps_edge = n_taps_edge
+        self.ar_order = ar_order
+        self.band = band
+        self.fs = fs
+        self.max_chunk_size = max_chunk_size
+
+    def apply(self, chunk):
+        x = np.zeros((len(chunk), self.n_taps+self.n_taps_edge))
+        chunk = np.concatenate([np.zeros(self.n_taps-1), chunk, np.zeros(self.n_taps-1)])
+        for k in range(len(x)):
+            x[k, :self.n_taps] = chunk[k:k+self.n_taps]
+        x[:, :self.n_taps] = sg.filtfilt(*self.ba_bandpass, x[:, :self.n_taps], axis=1)
+        for k in range(len(x)):
+            x[k] = ARPredictor(self.ar_order).fit_predict(x[k, :self.n_taps-self.n_taps_edge], 2*self.n_taps_edge)
+        x = sg.hilbert(x, axis=1)[:, -self.n_taps_edge - 1]
+        return x
+
+
 if __name__ == '__main__':
     import pandas as pd
     dataset = "alpha2-delay-subj-21_12-06_12-15-09"
@@ -221,24 +245,24 @@ if __name__ == '__main__':
 
     y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
 
-    rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
+    # rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
     whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
     cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
     rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=None, max_chunk_size=1).apply(x))
-    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilter(band, fs, delay, 2000, 25, 50, max_chunk_size=1).apply(x))
+    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilterFIR(band, fs, delay, 2000, 25, 50, max_chunk_size=1).apply(x))
 
     from time import time
     t0 = time()
     # ffiltar_filter_y = np.abs(ARCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
     print(time()-t0)
 
-    print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
+    # print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
     # print(np.corrcoef(y, ffiltar_filter_y)[1,0],
     print(np.corrcoef(y, rlscfir_filter_y)[1,0])
     print(np.corrcoef(y, ffiltar_filter_y)[1, 0])
     import pylab as plt
     plt.plot(y)
-    plt.plot(rect_filter_y)
+    # plt.plot(rect_filter_y)
     plt.plot(whilbert_filter_y)
     plt.plot(cfir_filter_y)
     plt.plot(rlscfir_filter_y)

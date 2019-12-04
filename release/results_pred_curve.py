@@ -18,7 +18,7 @@ def get_classes(y, alpha, n_states=3):
     return y_pred
 
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
-dataset = eeg_df.query('snr<0.1')['dataset'].unique()[0]
+dataset = eeg_df.query('snr>0.9')['dataset'].unique()[0]
 eeg_df = eeg_df.query('dataset=="{}"'.format(dataset))
 
 envelope = eeg_df['an_signal'].abs().values * 1e6

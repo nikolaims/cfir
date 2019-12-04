@@ -1,3 +1,8 @@
+"""
+Figure 5: Discrete paradigm accuracy for one subject with median SNR
+"""
+
+
 import pandas as pd
 import pylab as plt
 import numpy as np

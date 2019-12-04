@@ -1,3 +1,8 @@
+"""
+Figure 2. Visualisation of processing steps of Methods for narrow-band signal envelope estimation
+Figure 7:  Envelope and phase estimates obtained by cFIR method for different delay values
+"""
+
 from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer, magnitude_spectrum
 from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter
 import numpy as np

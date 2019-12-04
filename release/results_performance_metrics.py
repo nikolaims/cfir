@@ -1,3 +1,8 @@
+"""
+Figure 2 and 3:  Four performance metrics vs incurred processing delay.
+"""
+
+
 import pandas as pd
 import numpy as np
 from release.constants import DELAY_RANGE, N_SAMPLES_TRAIN, N_SAMPLES_TEST

@@ -1,3 +1,9 @@
+"""
+Figure 6:  Average envelope computed using real-time detected markers of High-events for different pre-specified
+processing delay values
+"""
+
+
 import pandas as pd
 import pylab as plt
 import numpy as np

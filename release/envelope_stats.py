@@ -18,6 +18,7 @@ def delay_align(x, y, delay):
 
 # compute metrics: env correlation, phase0 bias, phase0 var
 def corr_delay(x, y, delay, bias=0):
+    # eff_cor = range(-200, 200, 10)[np.argmax([np.corrcoef(np.roll(np.abs(x), -d), np.abs(y))[0,1] for d in range(-200, 200, 10)])]/500*1000
     x, y = delay_align(x, y, delay)
     corr = np.corrcoef(np.abs(x), np.abs(y))[0, 1]
     phase_zero_moments = np.diff((np.angle(x) >= 0 - bias/360*2*np.pi).astype(int))>0
@@ -118,7 +119,7 @@ stats_df.to_pickle('results/stats.pkl')
 
 # plot metrics trade-off
 sns.set_style()
-g = sns.catplot('delay', 'test', 'method', data=stats_df, col='col', sharey='none', kind='point', dodge=0.2,
+g = sns.catplot('delay', 'test', 'method', data=stats_df.fillna(np.inf), col='col', sharey='none', kind='point', dodge=0.2,
                 palette=sns.color_palette(colors), linewidth=0, edgecolor='#CCCCCC', height=4, aspect=1, row='row')
 def setup_axes(g, xlabel='Delay, ms'):
     # [ax.axvline(2, color='k', alpha=0.5, linestyle='--', zorder=-1000) for ax in g.axes.flatten()]
@@ -128,7 +129,7 @@ def setup_axes(g, xlabel='Delay, ms'):
     g.axes[0, 0].set_ylim(0, 1)
     g.axes[1, 1].set_ylim(-5, 10)
     g.axes[1, 0].set_ylim(-5, 10)
-    g.axes[0, 1].set_ylim(0, 90)
+    g.axes[0, 1].set_ylim(0, 100)
     g.axes[0,0].set_ylabel('$r_a$')
     g.axes[0,1].set_ylabel('$\sigma_\phi$')
     g.axes[1, 0].set_ylabel('$b_\phi$')

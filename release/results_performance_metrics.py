@@ -2,24 +2,17 @@
 Figure 2 and 3:  Four performance metrics vs incurred processing delay.
 """
 
-
 import pandas as pd
 import numpy as np
-from release.constants import DELAY_RANGE, N_SAMPLES_TRAIN, N_SAMPLES_TEST
-from tqdm import tqdm
 import pylab as plt
 import seaborn as sns
 
+from release.constants import DELAY_RANGE, N_SAMPLES_TRAIN, N_SAMPLES_TEST
+from release.utils import delay_align
+from tqdm import tqdm
 
-# method to align offline and real-time signals
-def delay_align(x, y, delay):
-    if delay >= 0:
-        x = x[delay:]
-        y = y[:-delay or None]
-    else:
-        x = x[:delay]
-        y = y[abs(delay):]
-    return x, y
+
+
 
 # compute metrics: env correlation, phase0 bias, phase0 var
 def corr_delay(x, y, delay, bias=0):

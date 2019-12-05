@@ -112,6 +112,22 @@ def individual_max_snr_band(x, fs, initial_band=ALPHA_BAND, band_half_width=None
     return best_band, best_snr
 
 
+def delay_align(x, y, delay):
+    """
+    Method to align offline and real-time signals by delay
+    :param x: real-time prediction
+    :param y: offline target signal
+    :param delay: delay
+    :return: x and y with compensated delay
+    """
+    if delay >= 0:
+        x = x[delay:]
+        y = y[:-delay or None]
+    else:
+        x = x[:delay]
+        y = y[abs(delay):]
+    return x, y
+
 if __name__ == "__main__":
     x = np.arange(5)
     print(_interval_mask(x, 1, 2))
@@ -119,3 +135,5 @@ if __name__ == "__main__":
     x = np.random.normal(size=100000)
     x = sg.filtfilt(*sg.butter(1, np.array(ALPHA_BAND)/500*2, 'band'), x)
     print(individual_max_snr_band(x, 500))
+
+

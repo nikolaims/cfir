@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
-import sys
 import h5py
-from release.utils import band_hilbert, individual_max_snr_band
+from release.utils import band_hilbert, individual_max_snr_band, load_data
 from release.constants import FS, N_SAMPLES_TEST, N_SAMPLES_TRAIN, N_SUBJECTS
 
-# import nfb lab data loader
-sys.path.insert(0, '/home/kolai/Projects/nfblab/nfb')
-from utils.load_results import load_data
 
 # collect info
 data_path = '/home/kolai/Data/alpha_delay2'
@@ -87,7 +83,7 @@ subjects = [datasets[k_means.labels_==k][0] for k in range(N_SUBJECTS)]
 eeg_df = eeg_df.loc[eeg_df['dataset'].isin(subjects)]
 eeg_df = eeg_df.reset_index(drop=True)
 
-# save info
+# save train test data
 eeg_df.to_pickle('data/rest_state_probes_real.pkl')
 
 

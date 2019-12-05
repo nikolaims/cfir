@@ -80,7 +80,7 @@ class CFIRBandEnvelopeDetector:
         Complex-valued FIR envelope detector based on analytic signal reconstruction
         :param band: freq. range to apply band-pass filtering
         :param fs: sampling frequency
-        :param delay: delay of ideal filter in ms
+        :param delay: delay of ideal filter in samples
         :param n_taps: length of FIR
         :param n_fft: length of freq. grid to estimate ideal freq. response
         :weights: least squares weights. If None match WHilbertFilter

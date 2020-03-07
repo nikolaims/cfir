@@ -4,11 +4,13 @@ import h5py
 from release.utils import band_hilbert, individual_max_snr_band, load_data
 from release.constants import FS, N_SAMPLES_TEST, N_SAMPLES_TRAIN, N_SUBJECTS
 
-subjects = ['alpha2-delay-subj-4_11-12_11-58-16', 'alpha2-delay-subj-6_11-14_11-06-10',
+subjects = ['alpha2-delay-subj-1_11-06_17-15-29', 'alpha2-delay-subj-2_11-07_17-06-03',
+            'alpha2-delay-subj-4_11-12_11-58-16', 'alpha2-delay-subj-5_11-12_20-56-08',
+            'alpha2-delay-subj-6_11-14_11-06-10', 'alpha2-delay-subj-7_11-15_11-38-15',
             'alpha2-delay-subj-8_11-15_17-55-21', 'alpha2-delay-subj-11_11-21_18-56-34',
-            'alpha2-delay-subj-21_12-06_12-15-09', 'alpha2-delay-subj-1_11-06_17-15-29',
-            'alpha2-delay-subj-5_11-12_20-56-08', 'alpha2-delay-subj-2_11-07_17-06-03',
-            'alpha2-delay-subj-7_11-15_11-38-15', 'alpha2-delay-subj-28_12-14_17-19-21']
+            'alpha2-delay-subj-21_12-06_12-15-09', 'alpha2-delay-subj-28_12-14_17-19-21']
+
+
 
 CHANNELS = ['FP1', 'FP2', 'F7', 'F3', 'FZ', 'F4', 'F8', 'FT9', 'FC5', 'FC1', 'FC2', 'FC6', 'FT10', 'C3', 'CZ', 'C4',
             'T8', 'TP9', 'CP5', 'CP1', 'CP2', 'CP6', 'TP10', 'P7', 'P3', 'P4', 'P8', 'O1', 'OZ', 'O2', 'T7', 'PZ']

@@ -111,7 +111,7 @@ stats_df['row'] = stats_df['metric'].isin(['phase_bias', 'phase_abs_bias'])
 stats_df['col'] = stats_df['metric'].isin(['phase_disp', 'phase_abs_bias'])
 
 # save stats df
-# stats_df.to_pickle('results/stats.pkl')
+stats_df.to_pickle('results/stats.pkl')
 
 
 # plot metrics trade-off

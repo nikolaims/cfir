@@ -22,8 +22,8 @@ def get_classes(y, alpha, n_states=3):
         y_pred[y > np.percentile(y, 100 - alpha)] = 1
     return y_pred
 
-dataset = "alpha2-delay-subj-21_12-06_12-15-09"
-eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl').query('dataset=="{}"'.format(dataset))
+dataset = 8
+eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl').query('subj_id=={}'.format(dataset))
 
 envelope = eeg_df['an_signal'].abs().values
 band = eeg_df[['band_left', 'band_right']].values[0]
@@ -31,7 +31,7 @@ band = eeg_df[['band_left', 'band_right']].values[0]
 magnitude_spectrum_train = {}
 _, weights = magnitude_spectrum(eeg_df['eeg'].values, FS)
 
-stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}"'.format(dataset))
+stats_df = pd.read_pickle('results/stats.pkl').query('subj_id=={}'.format(dataset))
 flatui = {'cfir':'#0099d8', 'acfir': '#84BCDA', 'wcfir':'#FE4A49', 'rect':'#A2A79E'}
 
 
@@ -122,4 +122,4 @@ ax[1, 0].set_ylim(-7, 20)
 ax[1, 0].set_xlim(0, 10)
 ax[1, 0].set_ylabel('Envelope, $uV$')
 ax[1, 0].set_xlabel('Time, s')
-plt.savefig('results/viz/res-classification-explained.png', dpi=500)
+# plt.savefig('results/viz/res-classification-explained.png', dpi=500)

@@ -1,7 +1,4 @@
 import scipy.signal as sg
-import xml.etree.ElementTree as ET
-import h5py
-import pandas as pd
 import numpy as np
 
 from constants import WELCH_NPERSEG, ALPHA_BAND

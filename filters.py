@@ -44,36 +44,6 @@ class RectEnvDetector:
         return y
 
 
-
-class WHilbertFilter:
-    def __init__(self, band, fs, delay, n_taps, n_fft, **kwargs):
-        """
-        Window bandpass Hilbert transform
-        :param band: band of interest
-        :param fs: sampling frequency
-        :param delay: desired delay. If delay < 0 return nans
-        :param n_taps: length of buffer window
-        """
-        self.fs = fs
-        self.band = band
-        self.delay = delay
-        if self.delay < 0:
-            warnings.warn('WHilbertFilter insufficient delay: delay < 0. Filter will return nans')
-            self.b = np.ones(n_taps) * np.nan
-        else:
-            w = np.arange(n_fft)
-            F = np.array([np.exp(-2j * np.pi / n_fft * k * np.arange(n_taps)) for k in np.arange(n_fft)])
-            F[(w/n_fft*fs < band[0]) | (w/n_fft*fs > band[1])] = 0
-            f = np.exp(2j * np.pi / n_fft * (n_taps-delay) * np.arange(n_fft))
-            self.b = f.dot(F)[::-1] * 2 / n_fft
-        self.a = np.array([1.])
-        self.zi = np.zeros(len(self.b) - 1)
-
-    def apply(self, chunk: np.ndarray):
-        y, self.zi = sg.lfilter(self.b, self.a, chunk, zi=self.zi)
-        return y
-
-
 class CFIRBandEnvelopeDetector:
     def __init__(self, band, fs, delay, n_taps=500, n_fft=2000, weights=None, **kwargs):
         """
@@ -227,51 +197,3 @@ class FiltFiltARHilbertFilterFIR:
             x[k] = ARPredictor(self.ar_order).fit_predict(x[k, :self.n_taps-self.n_taps_edge], 2*self.n_taps_edge)
         x = sg.hilbert(x, axis=1)[:, -self.n_taps_edge - 1]
         return x
-
-
-if __name__ == '__main__':
-    import pandas as pd
-    dataset = "alpha2-delay-subj-21_12-06_12-15-09"
-    eeg_df = pd.read_pickle('data/rest_state_probes.pkl').query('dataset=="{}"'.format(dataset))
-
-    x = eeg_df['eeg'].iloc[20000:30000].values
-    #x = np.random.normal(size=5000)
-    band = [8, 12]
-    fs = 500
-    delay = 0
-    from release.utils import magnitude_spectrum
-    _, weights = magnitude_spectrum(eeg_df['eeg'].iloc[10000:20000].values, fs, 2000)
-    #weights = np.median(np.abs(sg.stft(eeg_df['eeg'].iloc[10000:20000].values, fs, nperseg=2000, nfft=2000, return_onesided=False))[2], 1)
-
-    y = np.roll(np.abs(band_hilbert(x, fs, band)), delay)
-
-    # rect_filter_y = RectEnvDetector(band, fs, delay, 150).apply(x)
-    whilbert_filter_y = np.abs(WHilbertFilter(band, fs, delay, 500, 2000).apply(x))
-    cfir_filter_y = np.abs(CFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
-    rlscfir_filter_y = np.abs(AdaptiveCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights=None, max_chunk_size=1).apply(x))
-    ffiltar_filter_y = np.abs(FiltFiltARHilbertFilterFIR(band, fs, delay, 2000, 25, 50, max_chunk_size=1).apply(x))
-
-    from time import time
-    t0 = time()
-    # ffiltar_filter_y = np.abs(ARCFIRBandEnvelopeDetector(band, fs, delay, 500, 2000, weights).apply(x))
-    print(time()-t0)
-
-    # print(np.corrcoef(y, rect_filter_y)[1,0], np.corrcoef(y, whilbert_filter_y)[1,0], np.corrcoef(y, cfir_filter_y)[1,0])
-    # print(np.corrcoef(y, ffiltar_filter_y)[1,0],
-    print(np.corrcoef(y, rlscfir_filter_y)[1,0])
-    print(np.corrcoef(y, ffiltar_filter_y)[1, 0])
-    import pylab as plt
-    plt.plot(y)
-    # plt.plot(rect_filter_y)
-    plt.plot(whilbert_filter_y)
-    plt.plot(cfir_filter_y)
-    plt.plot(rlscfir_filter_y)
-    plt.plot(ffiltar_filter_y)
-    # # x = np.sin(10 * 2 * np.pi * np.arange(100) / 500) + np.random.normal(0, 0.1, 100)
-    # # # #
-    # x1 = band_hilbert(x[:1000], fs, band).real
-    # plt.plot(ARPredictor(50).fit_predict(band_hilbert(x[:550], fs, band).real[:500], 500))
-    # plt.plot(x1)
-    # plt.plot(band_hilbert(x[:550], fs, band).real)
-
-

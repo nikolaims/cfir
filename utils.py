@@ -4,7 +4,7 @@ import h5py
 import pandas as pd
 import numpy as np
 
-from release.constants import WELCH_NPERSEG, ALPHA_BAND
+from constants import WELCH_NPERSEG, ALPHA_BAND
 
 
 def rt_emulate(wfilter, x, chunk_size=1):

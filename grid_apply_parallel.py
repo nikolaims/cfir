@@ -6,10 +6,10 @@ import pandas as pd
 from tqdm import tqdm
 from copy import deepcopy
 
-from release.filters import \
+from filters import \
     RectEnvDetector, CFIRBandEnvelopeDetector, AdaptiveCFIRBandEnvelopeDetector, FiltFiltARHilbertFilter
-from release.constants import DELAY_RANGE, FS, N_SAMPLES_TRAIN, N_SAMPLES_TEST
-from release.utils import magnitude_spectrum
+from constants import DELAY_RANGE, FS, N_SAMPLES_TRAIN, N_SAMPLES_TEST
+from utils import magnitude_spectrum
 
 
 # load data

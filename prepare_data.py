@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 import h5py
-from release.utils import band_hilbert, individual_max_snr_band
-from release.constants import FS, N_SAMPLES_TEST, N_SAMPLES_TRAIN
+from utils import band_hilbert, individual_max_snr_band
+from constants import FS, N_SAMPLES_TEST, N_SAMPLES_TRAIN
 
 
 # collect info

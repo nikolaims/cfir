@@ -4,7 +4,7 @@ import warnings
 import padasip as pa
 from scipy.linalg import toeplitz
 
-from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer
+from utils import rt_emulate, band_hilbert, SlidingWindowBuffer
 
 
 class RectEnvDetector:

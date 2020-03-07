@@ -8,9 +8,9 @@ import pandas as pd
 import pylab as plt
 import numpy as np
 import seaborn as sns
-from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector
-from release.utils import magnitude_spectrum
-from release.constants import FS, DELAY_RANGE
+from filters import CFIRBandEnvelopeDetector, RectEnvDetector
+from utils import magnitude_spectrum
+from constants import FS, DELAY_RANGE
 from sklearn.metrics import roc_auc_score, average_precision_score, balanced_accuracy_score
 
 

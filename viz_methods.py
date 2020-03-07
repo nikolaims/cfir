@@ -3,13 +3,13 @@ Figure 2. Visualisation of processing steps of Methods for narrow-band signal en
 Figure 7:  Envelope and phase estimates obtained by cFIR method for different delay values
 """
 
-from release.utils import rt_emulate, band_hilbert, SlidingWindowBuffer, magnitude_spectrum
-from release.filters import CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter
+from utils import rt_emulate, band_hilbert, SlidingWindowBuffer, magnitude_spectrum
+from filters import CFIRBandEnvelopeDetector, RectEnvDetector, WHilbertFilter
 import numpy as np
 import scipy.signal as sg
 import pandas as pd
 import pylab as plt
-from release.constants import FS, ALPHA_BAND
+from constants import FS, ALPHA_BAND
 
 
 def setup_gca():

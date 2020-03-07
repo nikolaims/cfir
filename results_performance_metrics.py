@@ -7,8 +7,8 @@ import numpy as np
 import pylab as plt
 import seaborn as sns
 
-from release.constants import DELAY_RANGE, N_SAMPLES_TRAIN, N_SAMPLES_TEST
-from release.utils import delay_align
+from constants import DELAY_RANGE, N_SAMPLES_TRAIN, N_SAMPLES_TEST
+from utils import delay_align
 from tqdm import tqdm
 
 

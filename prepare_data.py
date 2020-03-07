@@ -4,7 +4,6 @@ Prepare train test data
 
 import pandas as pd
 import numpy as np
-import h5py
 from utils import band_hilbert, individual_max_snr_band
 from constants import FS, N_SAMPLES_TEST, N_SAMPLES_TRAIN
 

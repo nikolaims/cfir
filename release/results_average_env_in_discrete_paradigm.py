@@ -24,8 +24,8 @@ def get_classes(y, alpha, n_states=3):
     return y_pred
 
 eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
-dataset = eeg_df.query('snr>0.9')['dataset'].unique()[0]
-eeg_df = eeg_df.query('dataset=="{}"'.format(dataset))
+dataset = eeg_df.query('snr>0.9')['subj_id'].unique()[0]
+eeg_df = eeg_df.query('subj_id=={}'.format(dataset))
 
 envelope = eeg_df['an_signal'].abs().values * 1e6
 band = eeg_df[['band_left', 'band_right']].values[0]
@@ -33,7 +33,7 @@ band = eeg_df[['band_left', 'band_right']].values[0]
 magnitude_spectrum_train = {}
 _, weights = magnitude_spectrum(eeg_df['eeg'].values*1e6, FS)
 
-stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}"'.format(dataset))
+stats_df = pd.read_pickle('results/stats.pkl').query('subj_id=={}'.format(dataset))
 flatui = {'cfir':'#0099d8', 'acfir': '#84BCDA', 'wcfir':'#FE4A49', 'rect':'#A2A79E'}
 
 
@@ -102,4 +102,4 @@ fig.text(0.02, 0.5, 'Envelope, $\mu V$', va='center', rotation='vertical')
 fig.text(0.5, 0.04, 'Time, ms', ha='center')
 
 plt.figlegend(lines, ['rect', 'wcfir', 'rand', 'ideal'])
-plt.savefig('results/viz/res-spindles.png', dpi=500)
+# plt.savefig('results/viz/res-spindles.png', dpi=500)

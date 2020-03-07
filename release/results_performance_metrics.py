@@ -33,7 +33,7 @@ methods = ['cfir', 'rlscfir', 'wcfir', 'rect', 'ffiltar']
 colors = ['#0099d8', '#84BCDA', '#FE4A49', '#A2A79E', '#444444']
 metrics = ['corr', 'phase_bias', 'phase_abs_bias', 'phase_disp']
 slices = dict([('train', slice(None, N_SAMPLES_TRAIN)), ('test', slice(N_SAMPLES_TRAIN, N_SAMPLES_TRAIN + N_SAMPLES_TEST))])
-columns=['method', 'dataset', 'snr', 'sim', 'delay', 'metric', 'train', 'test', 'params']
+columns=['method', 'dataset', 'snr', 'delay', 'metric', 'train', 'test', 'params']
 
 # best stats df
 stats_df = pd.DataFrame(columns=columns, dtype=float)
@@ -47,14 +47,13 @@ for j_method, method_name in enumerate(methods):
     kwargs_df = pd.read_csv('results/{}_kwargs.csv'.format(method_name))
 
     # iterate datasets
-    for dataset in tqdm(eeg_df['dataset'].unique(), method_name):
+    for dataset in tqdm(eeg_df['subj_id'].unique(), method_name):
 
         # query dataset data
-        df = eeg_df.query('dataset == "{}"'.format(dataset))
+        df = eeg_df.query('subj_id == {}'.format(dataset))
 
         # get snr, sim flag and y_true
         snr = df['snr'].values[0]
-        sim = df['sim'].values[0]
         y_true = df['an_signal'].values
 
         # iterate delays
@@ -64,10 +63,10 @@ for j_method, method_name in enumerate(methods):
             best_var_dict = (None, None, None)
 
             # iterate params grid
-            for params in kwargs_df.query('dataset == "{}" & delay=={}'.format(dataset, delay)).itertuples():
+            for params in kwargs_df.query('subj_id == {} & delay=={}'.format(dataset, delay)).itertuples():
                 params = params._asdict()
                 y_pred = res[params.pop('Index')]
-                assert params.pop('dataset') == dataset
+                assert params.pop('subj_id') == dataset
                 assert params.pop('delay') == delay
 
                 # train scores
@@ -95,7 +94,7 @@ for j_method, method_name in enumerate(methods):
                         best_var_dict = (train_var, test_var, params)
 
             # save stats
-            stats_dict = {'method': method_name, 'dataset': dataset, 'snr': snr, 'sim': sim, 'delay': delay*2,
+            stats_dict = {'method': method_name, 'subj_id': dataset, 'snr': snr, 'delay': delay*2,
                           'metric': metrics,
                           'train':  [best_corr_dict[0], best_bias_dict[0],
                                      abs(best_bias_dict[0]) if best_bias_dict[0] else np.nan, best_var_dict[0]],
@@ -112,7 +111,7 @@ stats_df['row'] = stats_df['metric'].isin(['phase_bias', 'phase_abs_bias'])
 stats_df['col'] = stats_df['metric'].isin(['phase_disp', 'phase_abs_bias'])
 
 # save stats df
-stats_df.to_pickle('results/stats.pkl')
+# stats_df.to_pickle('results/stats.pkl')
 
 
 # plot metrics trade-off
@@ -142,7 +141,7 @@ def setup_axes(g, xlabel='Delay, ms'):
     g.axes[1, 0].set_title('C. Phase bias ')
     g.axes[1, 1].set_title('D. Phase abs. bias.')
 setup_axes(g)
-plt.savefig('results/viz/res-metrics.png', dpi=500)
+# plt.savefig('results/viz/res-metrics.png', dpi=500)
 
 # plot zero delay metrics vs SNR
 g = sns.lmplot('snr', 'test', hue='method', data=stats_df.query('delay==0'), col='col', sharey='none',
@@ -154,4 +153,4 @@ g.axes[1,0].lines[methods.index('rect')].set_alpha(0)
 g.axes[1,1].lines[methods.index('rect')].set_alpha(0)
 
 setup_axes(g, 'SNR')
-plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)
+# plt.savefig('results/viz/res-metrics-delay0.png', dpi=500)

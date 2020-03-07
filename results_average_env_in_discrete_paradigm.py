@@ -23,7 +23,7 @@ def get_classes(y, alpha, n_states=3):
         y_pred[y > np.percentile(y, 100 - alpha)] = 1
     return y_pred
 
-eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
+eeg_df = pd.read_pickle('data/train_test_data.pkl')
 dataset = eeg_df.query('snr>0.9')['subj_id'].unique()[0]
 eeg_df = eeg_df.query('subj_id=={}'.format(dataset))
 

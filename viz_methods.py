@@ -326,6 +326,11 @@ plt.close()
 fig, axes = plt.subplots(6, 2, figsize=(10,5), sharex='col', sharey='col')
 plt.subplots_adjust(hspace=0.1, bottom=0.15, left=0.03, right=0.97)
 time = np.arange(slc.stop-slc.start)/FS
+x = eeg.copy()
+Xf = np.fft.fft(x)
+w = np.fft.fftfreq(x.shape[0], d=1. / FS)
+Xf[(w < band[0]) | (w > band[1])] = 0
+
 for d, delay in enumerate([-50, 0, 50, 100, 150, 200]):
     params = stats_df.query('method=="{}" & metric=="corr" & delay=="{}"'.format('cfir', delay))['params'].values[0]
     filt = CFIRBandEnvelopeDetector(band, FS, delay//2, params['n_taps'])

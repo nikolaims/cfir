@@ -23,7 +23,7 @@ def get_classes(y, alpha, n_states=3):
     return y_pred
 
 dataset = 8
-eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl').query('subj_id=={}'.format(dataset))
+eeg_df = pd.read_pickle('data/train_test_data.pkl').query('subj_id=={}'.format(dataset))
 
 envelope = eeg_df['an_signal'].abs().values
 band = eeg_df[['band_left', 'band_right']].values[0]

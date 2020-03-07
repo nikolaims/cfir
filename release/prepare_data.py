@@ -44,7 +44,7 @@ for j_dataset, dataset in enumerate(rest_df['subj_id'].unique()):
 
 
 # save train test data
-# eeg_df.to_pickle('data/rest_state_probes_real.pkl')
+eeg_df.to_pickle('data/train_test_data.pkl')
 
 
 import pylab as plt

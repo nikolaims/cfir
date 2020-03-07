@@ -13,11 +13,11 @@ from release.utils import magnitude_spectrum
 
 
 # load data
-eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl')
+eeg_df = pd.read_pickle('data/train_test_data.pkl')
 
 # compute train magnitude spectrum for weights if it needed
 magnitude_spectrum_train = {}
-for dataset, dataset_df in eeg_df.groupby('dataset'):
+for dataset, dataset_df in eeg_df.groupby('subj_id'):
     _, weights = magnitude_spectrum(eeg_df['eeg'].values[:N_SAMPLES_TRAIN], FS)
     magnitude_spectrum_train[dataset] = weights
 
@@ -34,15 +34,6 @@ kwargs_grid_dict['rlscfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
     'upd_samples': [25, 50],
 })
 
-# # rls
-# kwargs_grid_dict['rlswcfir'] = (AdaptiveCFIRBandEnvelopeDetector, {
-#     'delay': DELAY_RANGE,
-#     'n_taps': [250, 500, 1000],#np.arange(200, 2000 + 1, 300),
-#     'ada_n_taps': [5000],
-#     'mu': [0.7, 0.8, 0.9],
-#     'upd_samples': [25, 50],
-#     'weigths': [True]
-# })
 
 # cFIR
 kwargs_grid_dict['cfir'] = (CFIRBandEnvelopeDetector, {
@@ -80,7 +71,7 @@ for method_name in kwargs_grid_dict:
     method_class, kwargs_grid = kwargs_grid_dict[method_name]
 
     # add datasets to params
-    kwargs_grid['dataset'] = eeg_df['dataset'].unique()
+    kwargs_grid['subj_id'] = eeg_df['subj_id'].unique()
 
     # all combinations of params to list
     keys, values = zip(*kwargs_grid.items())
@@ -97,14 +88,14 @@ for method_name in kwargs_grid_dict:
         method_kwargs = deepcopy(method_kwargs)
 
         # get x and train band
-        df = eeg_df.query('dataset=="{}"'.format(method_kwargs['dataset']))
+        df = eeg_df.query('subj_id=={}'.format(method_kwargs['subj_id']))
         x = df['eeg'].values
         band = (df['band_left_train'].values[0], df['band_right_train'].values[0])
 
         # handle weights logic
         if 'weights' in method_kwargs:
             if method_kwargs['weights'] is not None:
-                method_kwargs['weights'] = magnitude_spectrum_train[method_kwargs['dataset']]
+                method_kwargs['weights'] = magnitude_spectrum_train[method_kwargs['subj_id']]
 
         # train data
         method = method_class(band=band, fs=FS, **method_kwargs)

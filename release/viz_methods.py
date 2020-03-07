@@ -25,9 +25,9 @@ def setup_gca():
 cm = {'b':'#0099d8', 'lb': '#84BCDA', 'r':'#FE4A49', 'g':'#A2A79E', 'dg': '#444444'}
 
 fdir = 'results/viz/methods/'
-dataset = "alpha2-delay-subj-21_12-06_12-15-09"
-eeg_df = pd.read_pickle('data/rest_state_probes_real.pkl').query('dataset=="{}"'.format(dataset))
-stats_df = pd.read_pickle('results/stats.pkl').query('dataset=="{}"'.format(dataset))
+subj_id = 8
+eeg_df = pd.read_pickle('data/train_test_data.pkl').query('subj_id=={}'.format(subj_id))
+stats_df = pd.read_pickle('results/stats.pkl').query('subj_id=="{}"'.format(subj_id))
 
 # raw signal
 eeg = eeg_df['eeg'].values

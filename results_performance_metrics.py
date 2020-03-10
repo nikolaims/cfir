@@ -116,6 +116,7 @@ stats_df.to_pickle('results/stats.pkl')
 
 # plot metrics trade-off
 sns.set_style()
+stats_df.loc[:, 'method'] = stats_df.loc[:, 'method'].replace({'rlscfir': 'tcfir'})
 g = sns.catplot('delay', 'test', 'method', data=stats_df.fillna(np.inf), col='col', sharey='none', kind='point', dodge=0.2,
                 palette=sns.color_palette(colors), linewidth=0, edgecolor='#CCCCCC', height=4, aspect=1, row='row')
 def setup_axes(g, xlabel='Delay, ms'):

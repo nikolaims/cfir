@@ -33,6 +33,10 @@ for j_dataset, dataset in enumerate(rest_df['subj_id'].unique()):
     an = band_hilbert(x, FS, band)[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
     x = x[5 * FS:N_SAMPLES_TRAIN + N_SAMPLES_TEST+ 5 * FS]
 
+    # swap train test
+    # an = np.concatenate([an[N_SAMPLES_TRAIN:N_SAMPLES_TRAIN + N_SAMPLES_TEST], an[:N_SAMPLES_TRAIN]])
+    # x = np.concatenate([x[N_SAMPLES_TRAIN:N_SAMPLES_TRAIN + N_SAMPLES_TEST], x[:N_SAMPLES_TRAIN]])
+
     # train band
     band_train, snr_train = individual_max_snr_band(x[:N_SAMPLES_TRAIN], FS)
     print(j_dataset, band_train, snr_train, '\n')

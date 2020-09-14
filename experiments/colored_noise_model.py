@@ -23,7 +23,7 @@ eeg = eeg_df['eeg'].values*1e6
 eeg = eeg[envelope<np.percentile(envelope, 50)]
 
 Psi = np.cov(eeg[1:], eeg[:-1])[1, 0] / np.var(eeg)
-R = np.var(eeg)*(1-Psi**2)
+R = np.var(eeg)*(1-Psi**2)*3
 
 # process = [0]
 # process0 = [np.random.randn()]
@@ -110,3 +110,9 @@ plt.plot(kf_env, label='KF {:.3f}'.format(np.corrcoef(envelope[:n_steps], kf_env
 plt.plot(envelope[:n_steps], label='Model')
 plt.plot(cfir_envelope[:n_steps], label='cFIR {:.3f}'.format(np.corrcoef(envelope[:n_steps], cfir_envelope[:n_steps])[1, 0]))
 plt.legend()
+
+plt.figure()
+plt.plot(x_true_list[:, 0])
+plt.plot(z_list + 200)
+plt.plot(x_list[:, 0] - 200)
+plt.legend(['model', 'model+AR(1)noise', 'KF'])

@@ -50,4 +50,4 @@ plt.plot(*welch(foot_eeg[labels==1], fs))
 plt.semilogy(*welch(foot_eeg[labels==2], fs))
 
 np.savez('data/eegbci_ica/eegbci{}_ICA_real_feet_fist.npz'.format(subject),
-         eeg=foot_eeg, labels=labels, fs=fs, label_names={1: 'Rest', 2: 'Feet', 3: 'Legs'})
+         eeg=foot_eeg, labels=labels, fs=fs, label_names={1: 'Rest', 2: 'Feet', 3: 'Legs'}, events=events_all)

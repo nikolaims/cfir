@@ -3,7 +3,7 @@ import pylab as plt
 import scipy.signal as sg
 from sklearn.metrics import roc_curve, roc_auc_score
 from filters import CFIRBandEnvelopeDetector, band_hilbert
-from experiments.kalman_filters import ColoredMeasurementNoiseKF
+from experiments.kalman_filters import ColoredMeasurementNoiseKF, SimpleKF
 
 data = np.load('/home/kolai/Projects/cfir/data/eegbci_ica/eegbci2_ICA_real_feet_fist.npz')
 np.random.seed(42)
@@ -50,26 +50,35 @@ Psi = 0.999
 R = np.var(eeg)*(1-Psi**2)
 
 # init KF
-x_list = np.zeros((len(eeg), 2))
-kf = ColoredMeasurementNoiseKF(2, 1, F, Q, H, Psi, R)
+ckf_x_list = np.zeros((len(eeg), 2))
+skf_x_list = np.zeros((len(eeg), 2))
+ckf = ColoredMeasurementNoiseKF(2, 1, F, Q, H, Psi, R)
+skf = SimpleKF(2, 1, F, Q, H, R)
+
+
 for t, z in enumerate(eeg):
-    kf.step(eeg[t])
-    x_list[t] = kf.x
+    ckf.step(eeg[t])
+    skf.step(eeg[t])
+    ckf_x_list[t] = ckf.x
+    skf_x_list[t] = skf.x
 
 
 def smooth(x, m=fs):
     b = np.ones(m)/m
     return sg.lfilter(b, [1.], x)
 
-kf_envelope = smooth(np.abs(x_list[:, 0] + 1j*x_list[:, 1]))
+ckf_envelope = smooth(np.abs(ckf_x_list[:, 0] + 1j * ckf_x_list[:, 1]))
+skf_envelope = smooth(np.abs(skf_x_list[:, 0] + 1j * skf_x_list[:, 1]))
 cfir_envelope = smooth(2*np.abs(CFIRBandEnvelopeDetector(band, fs, delay).apply(eeg)))
 
 plt.plot(labels)
-plt.plot(kf_envelope)
+plt.plot(ckf_envelope)
 plt.plot(cfir_envelope)
+plt.plot(skf_envelope)
 
 plt.figure()
 plt.plot([0,1], [0, 1])
-plt.plot(*roc_curve(labels, kf_envelope)[:2], label='KF auc = {:.2f}'.format(roc_auc_score(labels, kf_envelope)))
+plt.plot(*roc_curve(labels, ckf_envelope)[:2], label='CKF auc = {:.2f}'.format(roc_auc_score(labels, ckf_envelope)))
 plt.plot(*roc_curve(labels, cfir_envelope)[:2], label='cFIR auc = {:.2f}'.format(roc_auc_score(labels, cfir_envelope)))
+plt.plot(*roc_curve(labels, skf_envelope)[:2], label='KF auc = {:.2f}'.format(roc_auc_score(labels, skf_envelope)))
 plt.legend()

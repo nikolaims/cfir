@@ -35,3 +35,29 @@ class ColoredMeasurementNoiseKF:
         self.ym1 = y
 
 
+
+class SimpleKF:
+    def __init__(self, n_x, n_z, F, Q, H,  R):
+        self.F = F
+        self.Q = Q
+        self.H = H
+        self.R = R
+
+        self.x = np.zeros(n_x)
+        self.P = np.zeros((n_x, n_x))
+
+    def step(self, y):
+        F = self.F
+        H = self.H
+
+        x = F @ self.x
+        P = F @ self.P @ F.T + self.Q
+
+        y = y - H.dot(x)
+        S = H @ P @ H.T + self.R
+
+        K = P @ H / S
+        self.x = x + K * y
+        self.P = (np.eye(len(self.P)) - K[:, None].dot(H[None, :])).dot(P)
+
+

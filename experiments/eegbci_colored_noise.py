@@ -47,14 +47,14 @@ H = np.array([1, 0])
 
 # Psi = np.cov(eeg[1:], eeg[:-1])[1, 0] / np.var(eeg)
 Psi = 0.999
-R = np.var(eeg)*(1-Psi**2)
+R = np.var(eeg)*(1-Psi**2)*2
 
 # init KF
 ckf_x_list = np.zeros((len(eeg), 2))
 skf_x_list = np.zeros((len(eeg), 2))
 ckf = ColoredMeasurementNoiseKF(2, 1, F, Q, H, Psi, R)
 skf = SimpleKF(2, 1, F, Q, H, R)
-flkf = FixedLagKF(ColoredMeasurementNoiseKF(2, 1, F, Q, H, Psi, R), 15)
+flkf = FixedLagKF(ColoredMeasurementNoiseKF(2, 1, F, Q, H, Psi, R), 50)
 
 
 for t, z in enumerate(eeg):
@@ -74,19 +74,48 @@ skf_envelope = smooth(np.abs(skf_x_list[:, 0] + 1j * skf_x_list[:, 1]))
 flkf_x_list = np.array(flkf.xSmooth)
 flkf_envelope = smooth(np.abs(flkf_x_list[:, 0] + 1j * flkf_x_list[:, 1]))
 
-cfir_envelope = np.roll(smooth(2*np.abs(CFIRBandEnvelopeDetector(band, fs, fs//2, n_taps=fs*2, n_fft=4*fs).apply(eeg))), -fs//2)
+cfir_envelope = np.roll(smooth(2*np.abs(CFIRBandEnvelopeDetector(band, fs, 0, n_taps=fs*2, n_fft=4*fs).apply(eeg))), -fs//2)
 
 
-plt.plot(labels)
-plt.plot(ckf_envelope)
-plt.plot(cfir_envelope)
-plt.plot(skf_envelope)
-plt.plot(flkf_envelope)
+plt.plot(labels, label='label')
+plt.plot(ckf_envelope, label='cKF')
+plt.plot(cfir_envelope, label='Colored FIR')
+plt.plot(skf_envelope, label='simple KF')
+plt.plot(flkf_envelope, label='Fixed-Lag KF')
+plt.legend()
 
 plt.figure()
-plt.plot([0,1], [0, 1])
-plt.plot(*roc_curve(labels, ckf_envelope)[:2], label='CKF auc = {:.2f}'.format(roc_auc_score(labels, ckf_envelope)))
-plt.plot(*roc_curve(labels, cfir_envelope)[:2], label='cFIR auc = {:.2f}'.format(roc_auc_score(labels, cfir_envelope)))
+plt.plot([0,1], [0, 1], 'k--', alpha=0.5)
+
+plt.plot(*roc_curve(labels, cfir_envelope)[:2], label='cFIR auc = {:.2f}'.format(roc_auc_score(labels, cfir_envelope)), color='k')
 plt.plot(*roc_curve(labels, skf_envelope)[:2], label='KF auc = {:.2f}'.format(roc_auc_score(labels, skf_envelope)))
+plt.plot(*roc_curve(labels, ckf_envelope)[:2], label='CKF auc = {:.2f}'.format(roc_auc_score(labels, ckf_envelope)))
 plt.plot(*roc_curve(labels, flkf_envelope)[:2], label='FLKF auc = {:.2f}'.format(roc_auc_score(labels, flkf_envelope)))
+plt.xlabel('FPR')
+plt.ylabel('TPR')
 plt.legend()
+#
+#
+# plt.figure()
+# from scipy.signal import welch
+# plt.plot(*welch(ckf_x_list[:, 0], fs))
+# xx = CFIRBandEnvelopeDetector(band, fs, 50, n_taps=fs*2, n_fft=4*fs).apply(eeg).real
+# plt.plot(*welch(xx, fs))
+#
+# plt.figure()
+# from scipy.signal import welch
+# plt.plot(ckf_x_list[:, 0])
+# plt.plot(xx)
+#
+# plt.figure()
+# plt.plot(*welch(eeg-flkf_x_list[:, 0], fs, nperseg=fs, nfft=4*fs))
+# # plt.plot(*welch(eeg-flkf_x_list[:, 0], fs, nperseg=fs, nfft=4*fs))
+# plt.plot(*welch(eeg[:-50]-xx[50:], fs, nperseg=fs, nfft=4*fs))
+#
+# plt.plot(flkf_x_list[:, 0])
+# plt.plot(eeg)
+#
+#
+# plt.figure()
+# plt.plot(*welch(eeg[labels], fs, nperseg=fs, nfft=4*fs))
+# plt.plot(*welch(eeg[~labels], fs, nperseg=fs, nfft=4*fs))

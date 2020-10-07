@@ -23,7 +23,8 @@ eeg = eeg_df['eeg'].values*1e6
 eeg = eeg[envelope<np.percentile(envelope, 50)]
 
 Psi = np.cov(eeg[1:], eeg[:-1])[1, 0] / np.var(eeg)
-R = np.var(eeg)*(1-Psi**2)*3
+Psi=0.93
+R = np.var(eeg)*(1-Psi**2)*10
 
 # process = [0]
 # process0 = [np.random.randn()]
@@ -116,3 +117,33 @@ plt.plot(x_true_list[:, 0])
 plt.plot(z_list + 200)
 plt.plot(x_list[:, 0] - 200)
 plt.legend(['model', 'model+AR(1)noise', 'KF'])
+
+
+import scipy.signal as sg
+import seaborn as sns
+plt.figure(figsize=(5, 3))
+f, pxx = sg.welch(z_list-x_true_list[:, 0], fs, nperseg=fs, nfft=4*fs)
+f1, pxx1 = sg.welch(z_list, fs, nperseg=fs, nfft=4*fs)
+slc = (f>=band[0]) & (f<=band[1])
+
+plt.fill_between(f, pxx, linewidth=0, color='C0')
+plt.fill_between(f[slc], pxx[slc]+4, pxx1[slc], linewidth=0, color='C3')
+plt.plot(*sg.welch(z_list, fs, nperseg=fs, nfft=4*fs), 'k')
+plt.axvline(band[0], color='k', linestyle='--', alpha=0.5)
+plt.axvline(band[1], color='k', linestyle='--', alpha=0.5)
+plt.ylabel('PSD')
+plt.xlabel('Freq., Hz')
+plt.yticks([])
+plt.ylim(0, max(pxx1))
+plt.xlim(0, 40)
+sns.despine(left=True)
+plt.tight_layout()
+
+plt.figure(figsize=(5, 3))
+plt.plot(np.arange(n_steps)/fs, z_list, color='k')
+plt.plot(np.arange(n_steps)/fs, x_true_list[:, 0] - 200, 'C3')
+plt.plot(np.arange(n_steps)/fs, z_list-x_true_list[:, 0] - 400, 'C0')
+sns.despine(left=True)
+plt.yticks([])
+plt.xlabel('Time, s')
+plt.tight_layout()

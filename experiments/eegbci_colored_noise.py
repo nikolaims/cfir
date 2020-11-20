@@ -74,7 +74,7 @@ skf_envelope = smooth(np.abs(skf_x_list[:, 0] + 1j * skf_x_list[:, 1]))
 flkf_x_list = np.array(flkf.xSmooth)
 flkf_envelope = smooth(np.abs(flkf_x_list[:, 0] + 1j * flkf_x_list[:, 1]))
 
-cfir_envelope = np.roll(smooth(2*np.abs(CFIRBandEnvelopeDetector(band, fs, 0, n_taps=fs*2, n_fft=4*fs).apply(eeg))), -fs//2)
+cfir_envelope = smooth(2*np.abs(CFIRBandEnvelopeDetector(band, fs, 0, n_taps=fs*2, n_fft=4*fs).apply(eeg)))
 
 
 plt.plot(labels, label='label')
